@@ -1,0 +1,56 @@
+---
+title: "Pràctica 1"
+output: html_document
+date: "2026-03-04"
+---
+
+```{r}
+library(knitr)
+library(survival)
+library(survminer)
+data <- read.table("whas100.txt", header = TRUE)
+
+data$gender <- factor(data$gender, levels = c(0, 1), labels = c("Home", "Dona"))
+```
+**Metadata**
+
+```{r}
+n.var2 <- names(data)
+kable(data.frame(Variables= n.var2[c(1,2,4,6,7)], Descripció= c("Temps en dies fins la mort del pacient","Indicador de censura per la dreta (censurat/observat)","Gènere del pacient (0=Home, 1=Dona)
+","Edat (menors de 70 anys (<70), majors de 70 anys (70+))
+","Índex massa corporal (kg/m^2) (Baix (menys de 25), Alt (25+))")))
+```
+
+# 1. Estimació i representació gràfica de les funcions de supervivència per gènere
+
+## Informació sobre el temps fins la mort per gènere
+
+```{r}
+add <- Surv(time = data$lenfol, event = as.numeric(as.character(data$fstat)))
+add.gen <- survfit(add ~ data$gender, conf.type = "log-log")
+print(add.gen)
+```
+Donat que hi ha intersecció entre els intervals de confiança per la mediana entre homes i dones no es pot dir que hi hagi diferències significatives entre els grups.
+
+```{r}
+plot(add.gen,xlab="Temps en dies",ylab="Supervivència",lty=c(1,3), xlim=c(0, 3000))
+legend(25,0.3,c("Homes","Dones"),lty=c(1,3))
+title("Funcions de Supervivència per gènere")
+```
+
+```{r}
+ggsurvplot(add.gen, data = data, conf.int = TRUE, 
+           xlab = "Temps en dies", ylab = "Supervivència",
+           legend.labs = c("Homes", "Dones"),
+           title = "Funcions de Supervivència per gènere",
+           xlim = c(0, max(data$lenfol)))
+```
+Gràficament no es pot constatar que hi hagi diferències entre gèneres.
+
+## Temps de supervivència per gènere. Hi ha evidència de temps de supervivència diferents?
+
+
+```{r}
+
+```
+

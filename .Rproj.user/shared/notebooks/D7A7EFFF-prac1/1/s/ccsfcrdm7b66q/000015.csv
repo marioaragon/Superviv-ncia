@@ -1,0 +1,4 @@
+"0","n.var2 <- names(data)"
+"0","kable(data.frame(Variables= n.var2[c(1,2,4,6,7)], Descripció= c(""Temps en dies fins la mort del pacient"",""Indicador de censura per la dreta (censurat/observat)"",""Gènere del pacient (0=Home, 1=Dona)"
+"0",""",""Edat (menors de 70 anys (<70), majors de 70 anys (70+))"
+"0",""",""Índex massa corporal (kg/m^2) (Baix (menys de 25), Alt (25+))"")))"

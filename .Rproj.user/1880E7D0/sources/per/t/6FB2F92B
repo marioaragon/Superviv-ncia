@@ -1,0 +1,28 @@
+{
+    "id": "6FB2F92B",
+    "path": null,
+    "project_path": null,
+    "type": "object_explorer",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1772638605418.0,
+    "source_on_save": false,
+    "relative_order": 3,
+    "properties": {
+        "id": "338d33672aa14486a5eeef2ecc1412c1",
+        "name": "add.gen",
+        "title": "add.gen",
+        "language": "R",
+        "source_window_id": "",
+        "Source": "Source"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 2314885530450145568,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1772638605418,
+    "read_only": false,
+    "read_only_alternatives": []
+}
