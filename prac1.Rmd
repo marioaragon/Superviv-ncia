@@ -22,7 +22,7 @@ kable(data.frame(Variables= n.var2[c(1,2,4,6,7)], Descripció= c("Temps en dies 
 ","Índex massa corporal (kg/m^2) (Baix (menys de 25), Alt (25+))")))
 ```
 
-# 1. Estimació i representació gràfica de les funcions de supervivència per gènere
+# Exercicis 1 i 4:  Funcions de supervivència per gènere
 
 ## Breu anàlisi descriptiva segons gènere
 
@@ -60,14 +60,18 @@ kable(resum, caption = "Descriptiva per gènere")
 En conjunt, la descriptiva suggereix una tendència cap a pitjor supervivència en les dones, però donada la gran diferència de tamany de les mostres de dones i homes caldrà fer un anàlisi més profund per comprovar-ho.
 
 
-## Informació sobre el temps fins la mort per gènere
+## Intervals de confiança per la mediana
 
 ```{r}
 add <- Surv(time = data$lenfol, event = as.numeric(as.character(data$fstat)))
 add.gen <- survfit(add ~ data$gender, conf.type = "log-log")
 print(add.gen)
 ```
+La mediana de supervivència dels homes és de 2624 dies (IC 95%: 1907 – NA), mentre que la de les dones és de 1806 dies (IC 95%: 461 – 2201).
+
 Donat que hi ha intersecció entre els intervals de confiança per la mediana entre homes i dones no es pot dir que hi hagi diferències estadísticament significatives entre els grups pel que fa a la mediana.
+
+## Corves de supervivència per gènere
 
 ```{r}
 ggsurvplot(add.gen, data = data, conf.int = TRUE, 
@@ -102,30 +106,43 @@ Els resultats obtinguts mitjançant el mètode de Nelson-Aalen apunten en la mat
 
 Per entendre per què, cal fixar-se en els intervals de confiança de les dues corbes de supervivència. Aquests intervals representen el marge d'incertesa al voltant de cada estimació: com més se solapen entre elles, menys clara és la diferència entre els dos grups. En el nostre cas, els intervals de les corbes d'homes i dones es creuen de manera notable al llarg de tot el seguiment, la qual cosa indica que les diferències observades podrien ser fruit de l'atzar i no d'una diferència real entre gèneres.
 
-En altres paraules: encara que les corbes no siguin idèntiques, l'evidència estadística (gràfica) no és suficient per concloure que homes i dones tinguin un risc diferent de recaiguda. 
+En altres paraules: encara que les corbes no siguin idèntiques, l'evidència estadística (gràfica) no és suficient per concloure que homes i dones tinguin un temps fins la mort diferent post infart de miocardi. 
 
 Per tal de donar suport numèric a aquesta idea, es procedirà a realitzar un test chi-quadrat per mesurar la significància de les diferències entre grups.
 
+## Contrast estadístic
+
+Per comparar les corbes de supervivència es poden considerar el contrast **log-rank**, el **Peto** i el **Fleming-Harrington**. La diferència entre ells és el pes que assignen a cada moment del seguiment: Peto prioritza els esdeveniments primerencs, mentre que el log-rank tracta tots els moments de manera equitativa.Fleming-Harrington permet ajustar mitjançant dos paràmetres (p, q) en quin moment del seguiment es vol maximitzar la potència del test.
+
+En el nostre cas, les corbes mostren una separació constant al llarg de tot el seguiment sense creuaments, i l'objectiu és detectar si hi ha diferències globals entre gèneres, no en un moment concret. Per tant, el **log-rank** és l'alternativa més adequada.
 
 ```{r}
 test.grup <- survdiff(add ~ data$gender)
 test.grup
 ```
-El test log-rank dona un p-valor de 0.05, que és exactament el llindar convencional de significació estadística. Això vol dir que estem en una zona ambigua: el resultat no permet ni afirmar ni descartar amb claredat que hi hagi diferències entre homes i dones.
+
+El test **log-rank** dona un **p-valor de 0.05**, que és exactament el llindar convencional de significació estadística. Això vol dir que estem en una zona ambigua: el resultat no permet ni afirmar ni descartar amb claredat que hi hagi diferències entre homes i dones.
 
 Els homes presenten més morts observades de les esperades (28 vs 34.6), mentre que en les dones passa el contrari (23 vs 16.4), la qual cosa suggeriria que les dones tenen pitjor supervivència. Però aquesta diferència no és prou gran per ser concloent.
 
-Donat que la prova es troba just al llindar de significació, i que les proves gràfiques indicaven que la diferència entre les corves no era estadísticament significativa, es conclou que no hi ha suficient evidència estadística per poder afirmar una diferència entre gèneres.
+## Coherència entre mètodes i conclusions
 
-## Consideracions sobre les hipòtesis dels estimadors
+Els resultats del contrast log-rank són coherents amb els obtinguts a la descriptiva, que ja apuntava a una possible diferència entre gèneres —amb una mortalitat observada de 65.7% en dones enfront del 43.1% en homes— però el reduït tamany mostral, especialment del grup de dones (n=35), comporta una major variància en les estimacions. Això es tradueix en intervals de confiança amplis i solapats a les corbes de supervivència, i també redueix la potència del test log-rank, fet que explica el p-valor limítrofe obtingut (p=0.05).
+
+En conclusió: **No es pot afirmar que hi hagi diferències estadísticament significatives entre gèneres**, però **tampoc es pot descartar completament**. El desequilibri en la mida de les mostres —65 homes davant 35 dones— limita la potència del contrast i dificulta l'extracció de conclusions fermes. Amb mostres més grans i equilibrades, els resultats serien més fiables i permetrien una interpretació més clara.
+
+
+## Consideracions sobre les hipòtesis dels estimadors i del test de contrast
 
 Els estimadors de Kaplan-Meier i Nelson-Aalen es basen en una sèrie d'hipòtesis que cal tenir en compte a l'hora d'interpretar els resultats.
 
-- La més important és la censura no informativa: s'assumeix que els pacients censurats, és a dir, aquells dels quals deixem d'observar l'evolució abans que es produeixi l'esdeveniment, tenen el mateix risc de morir que els pacients que continuen en seguiment. Si els pacients censurats haguessin abandonat l'estudi per motius relacionats amb el seu estat de salut, els estimadors estarien esbiaixats i els resultats no reflectirien la realitat.
+- La més important és la **censura no informativa**: s'assumeix que els pacients censurats, és a dir, aquells dels quals deixem d'observar l'evolució abans que es produeixi l'esdeveniment, tenen el mateix risc de morir que els pacients que continuen en seguiment. Si els pacients censurats haguessin abandonat l'estudi per motius relacionats amb el seu estat de salut, els estimadors estarien esbiaixats i els resultats no reflectirien la realitat.
 
-- Estretament relacionada amb l'anterior és la hipòtesi d'independència de les censures: el moment en què un pacient és censurat no ha de dependre del seu temps de supervivència real. En el nostre cas, si les censures es deuen principalment al final del període d'estudi i no a una pèrdua de seguiment selectiva, aquesta condició és més fàcil de satisfer.
+- Estretament relacionada amb l'anterior és la **hipòtesi d'independència de les censures**: el moment en què un pacient és censurat no ha de dependre del seu temps de supervivència real. En el nostre cas, si les censures es deuen principalment al final del període d'estudi i no a una pèrdua de seguiment selectiva, aquesta condició és més fàcil de satisfer.
 
-- Finalment, l'estimador de Kaplan-Meier assumeix que els individus censurats han sobreviscut almenys fins al moment de censura, i extén la seva contribució fins al següent esdeveniment observat. Això fa que l'estimació tendeixi a ser lleugerament optimista: si alguns pacients censurats haguessin mort poc després de ser retirats de l'estudi, KM estaria sobreestimant la supervivència real.
+- Finalment, **l'estimador de Kaplan-Meier assumeix que els individus censurats han sobreviscut almenys fins al moment de censura**, i extén la seva contribució fins al següent esdeveniment observat. Això fa que l'estimació tendeixi a ser lleugerament optimista: si alguns pacients censurats haguessin mort poc després de ser retirats de l'estudi, KM estaria sobreestimant la supervivència real.
+
+- El contrast log-rank assumeix **hazards proporcionals**: **el risc relatiu entre grups ha de ser constant al llarg del temps**. Això és coherent amb el fet que assigni el mateix pes a tots els moments temporals — si el risc relatiu no canvia, cap moment és més informatiu que un altre. En el nostre cas, les corbes no es creuen ni mostren canvis bruscos, la qual cosa és consistent amb aquesta hipòtesi i valida l'ús del log-rank front a alternatives com el Wilcoxon o el Fleming-Harrington.
 
 En el nostre cas, aquestes hipòtesis són especialment rellevants donat el p-valor limítrofe obtingut (p = 0.05). Una censura que no fos del tot aleatòria podria estar alterant artificialment les diferències observades entre homes i dones, de manera que amb un disseny d'estudi diferent o un seguiment més prolongat, la conclusió podria variar.
 
