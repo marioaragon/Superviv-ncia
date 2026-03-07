@@ -54,3 +54,86 @@ Gràficament no es pot constatar que hi hagi diferències entre gèneres.
 
 ```
 
+
+######
+
+#Pregunta 6 : bloque para que corran los codigos 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(survival)
+library(survminer)
+library(dplyr)
+```
+
+
+
+
+```{r}
+
+
+whas <- read.table("whas100.txt", header = TRUE)
+
+whas <- whas %>%
+  mutate(
+    gender = factor(gender, levels = c(0, 1), labels = c("Home", "Dona")),
+    fage   = factor(fage,   levels = c(0, 1), labels = c("70-", "70+")),
+    fbmi   = factor(fbmi,   levels = c(0, 1), labels = c("Baix", "Alt"))
+  )
+
+S <- Surv(time = whas$lenfol, event = whas$fstat)
+
+str(whas)
+summary(whas)
+head(whas)
+
+
+```
+
+
+`]
+# Pregunta 6. Comparació per contrastos de les funcions de supervivència per índex de massa corporal
+
+
+```{r}
+## Código
+
+
+survdiff(S ~ fbmi, data = whas)
+```
+
+```{r}
+cox_bmi_main <- coxph(S ~ gender + fbmi, data = whas)
+cox_bmi_int  <- coxph(S ~ gender * fbmi, data = whas)
+
+summary(cox_bmi_main)
+summary(cox_bmi_int)
+anova(cox_bmi_main, cox_bmi_int, test = "LRT")
+```
+
+**Comentad las diferentes alternativas y cuál creéis más conveniente para este caso.**
+
+Para comparar la supervivencia entre los grupos de BMI bajo y BMI alto, usamos es el contraste **log-rank**, este contraste permite comprobar si las curvas de supervivencia de ambos grupos pueden considerarse iguales o no.
+
+En este caso, el resultado fue \(\chi^2 = 11.2\) con 1 grado de libertad y un valor-p de \(0.0008\). Como el valor-p es mucho menor que 0.05, se rechaza la hipótesis nula de igualdad. Por tanto, sí hay diferencias significativas en la supervivencia según el índice de masa corporal.  lo que quiere decir que, el contraste log-rank parece una opción adecuada, porque ya en el análisis gráfico de la pregunta 3 se observaban diferencias bastante claras entre los grupos.
+
+**¿Hay coherencia entre los contrastes y los resultados de la pregunta 3?**
+
+Sí, hay coherencia ya que en la pregunta 3 las curvas de supervivencia sugerían que los pacientes con **BMI bajo** tenían peor supervivencia que los de **BMI alto**, el contraste log-rank confirma que esa diferencia no es aleatoria, adicionalmente, el modelo de Cox ajustado por género, el grupo con **BMI alto** tiene un hazard ratio de \(0.392\),lo que indica que su riesgo de morir es menor que el del grupo con BMI bajo entonces   los resultados son consistentens con los  observados en las curvas de la pregunta 3.
+
+**Comentad las alternativas para comprobar posibles efectos de confusión e interacción entre género e índice de masa corporal.**
+
+Para estudiar si hay confusión, se puede comparar el efecto del BMI solo y luego ajustado por género usando un modelo de Cox, en el modelo ajustado, el BMI sigue siendo significativo, lo que significa que el efecto del BMI sobre la supervivencia no desaparece al tener en cuenta el género, lo que  sugiere que el género no explica por sí solo la relación entre BMI y la supervivencia.
+
+Para  validar si hay interacción, se ajustó un modelo con el término `gender * fbmi`. El valor-p de la interacción fue \(0.5399\), y además la comparación entre el modelo con interacción y el modelo sin interacción dio un valor-p de \(0.5393\). Como estos valores son mayores que 0.05, no hay evidencia de interacción. es decir, con estos datos no parece que el efecto del BMI sobre la supervivencia cambie según el género.
+
+**¿Cómo afectan las hipótesis de los contrastes a los resultados obtenidos?**
+
+Estos resultados dependen de varias hipótesis, La principal es que la censura sea no informativa, es decir que los pacientes censurados no tengan un riesgo de morir muy distinto al de los pacientes que siguieron en estudio,  Si esta condición no se cumple los resultados podrían no reflejar bien la realidad, adicionalmente  el log-rank como el modelo de Cox funcionan mejor cuando las diferencias entre los grupos se mantienen de manera parecida a lo largo del tiempo. Si las curvas de supervivencia se cruzaran mucho, sería más difícil interpretar los resultados.
+
+En  nuestro caso los resultados indican que el índice de masa corporal sí influye en la supervivencia. Los pacientes con BMI alto muestran un menor riesgo de morir que los de BMI bajo. Además, no se observó una interacción importante con el género, así que el efecto del BMI parece similar en hombres y mujeres.
+
+
+
+
+
