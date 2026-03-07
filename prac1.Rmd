@@ -1,20 +1,21 @@
 ---
 title: "Pràctica 1"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 date: "2026-03-04"
 ---
 
-```{r}
+```{r, include=FALSE, message=FALSE}
 library(knitr)
 library(survival)
 library(survminer)
 data <- read.table("whas100.txt", header = TRUE)
-
-data$gender <- factor(data$gender, levels = c(0, 1), labels = c("Home", "Dona"))
 ```
 **Metadata**
 
-```{r}
+```{r, echo=FALSE}
+data$gender <- factor(data$gender, levels = c(0, 1), labels = c("Home", "Dona"))
 n.var2 <- names(data)
 kable(data.frame(Variables= n.var2[c(1,2,4,6,7)], Descripció= c("Temps en dies fins la mort del pacient","Indicador de censura per la dreta (censurat/observat)","Gènere del pacient (0=Home, 1=Dona)
 ","Edat (menors de 70 anys (<70), majors de 70 anys (70+))
@@ -23,6 +24,42 @@ kable(data.frame(Variables= n.var2[c(1,2,4,6,7)], Descripció= c("Temps en dies 
 
 # 1. Estimació i representació gràfica de les funcions de supervivència per gènere
 
+## Breu anàlisi descriptiva segons gènere
+
+```{r, echo=FALSE}
+homes <- data[data$gender == "Home", ]
+dones <- data[data$gender == "Dona", ]
+resum <- data.frame(
+  ` ` = c("N", "Morts (n)", "Morts (%)", "Mediana seguiment (dies)", "Mitjana seguiment (dies)"),
+  Homes = c(
+    nrow(homes),
+    sum(homes$fstat),
+    paste0(round(mean(homes$fstat) * 100, 1), "%"),
+    median(homes$lenfol),
+    round(mean(homes$lenfol), 1)
+  ),
+  Dones = c(
+    nrow(dones),
+    sum(dones$fstat),
+    paste0(round(mean(dones$fstat) * 100, 1), "%"),
+    median(dones$lenfol),
+    round(mean(dones$lenfol), 1)
+  ),
+  check.names = FALSE
+)
+kable(resum, caption = "Descriptiva per gènere")
+```
+**Aspectes a destacar:**
+
+- **Mostra desequilibrada**: hi ha gairebé el doble d'homes (65) que de dones (35), cosa que cal tenir en compte a l'hora d'interpretar les comparacions entre grups.
+
+- **Les dones presenten una mortalitat observada més alta** (65.7% vs 43.1%), una diferència de més de 20 punts percentuals que ja apunta a un possible efecte del gènere sobre la supervivència.
+
+- **El temps de seguiment és similar entre grups** (mediana de 1916 dies en homes vs 1806 en dones), la qual cosa indica que la diferència en mortalitat no s'explica per un seguiment més prolongat en un dels grups.
+
+En conjunt, la descriptiva suggereix una tendència cap a pitjor supervivència en les dones, però donada la gran diferència de tamany de les mostres de dones i homes caldrà fer un anàlisi més profund per comprovar-ho.
+
+
 ## Informació sobre el temps fins la mort per gènere
 
 ```{r}
@@ -30,13 +67,7 @@ add <- Surv(time = data$lenfol, event = as.numeric(as.character(data$fstat)))
 add.gen <- survfit(add ~ data$gender, conf.type = "log-log")
 print(add.gen)
 ```
-Donat que hi ha intersecció entre els intervals de confiança per la mediana entre homes i dones no es pot dir que hi hagi diferències significatives entre els grups.
-
-```{r}
-plot(add.gen,xlab="Temps en dies",ylab="Supervivència",lty=c(1,3), xlim=c(0, 3000))
-legend(25,0.3,c("Homes","Dones"),lty=c(1,3))
-title("Funcions de Supervivència per gènere")
-```
+Donat que hi ha intersecció entre els intervals de confiança per la mediana entre homes i dones no es pot dir que hi hagi diferències estadísticament significatives entre els grups pel que fa a la mediana.
 
 ```{r}
 ggsurvplot(add.gen, data = data, conf.int = TRUE, 
@@ -45,19 +76,63 @@ ggsurvplot(add.gen, data = data, conf.int = TRUE,
            title = "Funcions de Supervivència per gènere",
            xlim = c(0, max(data$lenfol)))
 ```
-Gràficament no es pot constatar que hi hagi diferències entre gèneres.
+Gràficament no es pot constatar que hi hagi diferències entre gèneres, donat que els intervals de confiança de totes dúes corves estan solapats en tot el temps d'estudi.
 
-## Temps de supervivència per gènere. Hi ha evidència de temps de supervivència diferents?
+Per contrastar aquest resultat, a continuació es procedirà a aplicar el mètode de **Nelson-Aalen**:
+
+```{r}
+add.gen <- survfit(add ~ data$gender, 
+                   conf.type = "log",
+                   type = "fh")
+print(add.gen)
+```
+En aquest cas no es pot assegurar la intersecció donat que no es disposa de dades que permetin tancar els intèrvals per la dreta. Gràficament:
+
+```{r}
+ggsurvplot(add.gen, data = data, conf.int = TRUE,
+           xlab = "Temps en dies", ylab = "Supervivència",
+           legend.labs = c("Homes", "Dones"),
+           title = "Funcions de Supervivència per gènere",
+           xlim = c(0, max(data$lenfol)),
+           pval = TRUE,
+           risk.table = TRUE,
+           ggtheme = theme_minimal())
+```
+Els resultats obtinguts mitjançant el mètode de Nelson-Aalen apunten en la mateixa direcció que els observats amb el mètode de Kaplan-Meier, reforçant la idea que no es pot afirmar amb certesa que el gènere influeixi en el temps de supervivència post-infart de miocardi.
+
+Per entendre per què, cal fixar-se en els intervals de confiança de les dues corbes de supervivència. Aquests intervals representen el marge d'incertesa al voltant de cada estimació: com més se solapen entre elles, menys clara és la diferència entre els dos grups. En el nostre cas, els intervals de les corbes d'homes i dones es creuen de manera notable al llarg de tot el seguiment, la qual cosa indica que les diferències observades podrien ser fruit de l'atzar i no d'una diferència real entre gèneres.
+
+En altres paraules: encara que les corbes no siguin idèntiques, l'evidència estadística (gràfica) no és suficient per concloure que homes i dones tinguin un risc diferent de recaiguda. 
+
+Per tal de donar suport numèric a aquesta idea, es procedirà a realitzar un test chi-quadrat per mesurar la significància de les diferències entre grups.
 
 
 ```{r}
-
+test.grup <- survdiff(add ~ data$gender)
+test.grup
 ```
+El test log-rank dona un p-valor de 0.05, que és exactament el llindar convencional de significació estadística. Això vol dir que estem en una zona ambigua: el resultat no permet ni afirmar ni descartar amb claredat que hi hagi diferències entre homes i dones.
+
+Els homes presenten més morts observades de les esperades (28 vs 34.6), mentre que en les dones passa el contrari (23 vs 16.4), la qual cosa suggeriria que les dones tenen pitjor supervivència. Però aquesta diferència no és prou gran per ser concloent.
+
+Donat que la prova es troba just al llindar de significació, i que les proves gràfiques indicaven que la diferència entre les corves no era estadísticament significativa, es conclou que no hi ha suficient evidència estadística per poder afirmar una diferència entre gèneres.
+
+## Consideracions sobre les hipòtesis dels estimadors
+
+Els estimadors de Kaplan-Meier i Nelson-Aalen es basen en una sèrie d'hipòtesis que cal tenir en compte a l'hora d'interpretar els resultats.
+
+- La més important és la censura no informativa: s'assumeix que els pacients censurats, és a dir, aquells dels quals deixem d'observar l'evolució abans que es produeixi l'esdeveniment, tenen el mateix risc de morir que els pacients que continuen en seguiment. Si els pacients censurats haguessin abandonat l'estudi per motius relacionats amb el seu estat de salut, els estimadors estarien esbiaixats i els resultats no reflectirien la realitat.
+
+- Estretament relacionada amb l'anterior és la hipòtesi d'independència de les censures: el moment en què un pacient és censurat no ha de dependre del seu temps de supervivència real. En el nostre cas, si les censures es deuen principalment al final del període d'estudi i no a una pèrdua de seguiment selectiva, aquesta condició és més fàcil de satisfer.
+
+- Finalment, l'estimador de Kaplan-Meier assumeix que els individus censurats han sobreviscut almenys fins al moment de censura, i extén la seva contribució fins al següent esdeveniment observat. Això fa que l'estimació tendeixi a ser lleugerament optimista: si alguns pacients censurats haguessin mort poc després de ser retirats de l'estudi, KM estaria sobreestimant la supervivència real.
+
+En el nostre cas, aquestes hipòtesis són especialment rellevants donat el p-valor limítrofe obtingut (p = 0.05). Una censura que no fos del tot aleatòria podria estar alterant artificialment les diferències observades entre homes i dones, de manera que amb un disseny d'estudi diferent o un seguiment més prolongat, la conclusió podria variar.
 
 
-######
+---
 
-#Pregunta 6 : bloque para que corran los codigos 
+# Pregunta 6 : bloque para que corran los codigos 
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
@@ -70,8 +145,6 @@ library(dplyr)
 
 
 ```{r}
-
-
 whas <- read.table("whas100.txt", header = TRUE)
 
 whas <- whas %>%
@@ -86,12 +159,9 @@ S <- Surv(time = whas$lenfol, event = whas$fstat)
 str(whas)
 summary(whas)
 head(whas)
-
-
 ```
 
 
-`]
 # Pregunta 6. Comparació per contrastos de les funcions de supervivència per índex de massa corporal
 
 
