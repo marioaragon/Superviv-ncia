@@ -1,19 +1,28 @@
 ---
-title: "Tasca"
-author:
-  - "Laura Belmonte"
-  - "Mario Aragón"
-  - "Lena Lledós"
-  - "Miguel Rodríguez"
+title: "Tasca 1: Estimació i comparació de funcions de supervivència"
+author: "Mario Aragón, Laura Belmonte, Lena Lledós, Miguel Rodríguez"
 date: "`r Sys.Date()`"
 output: pdf_document
 ---
 
 \newpage
+\renewcommand{\contentsname}{Índex}
 \tableofcontents
 \newpage
 
-Per dur a terme aquesta tasca i realitzar l’anàlisi de supervivència sol·licitada, cal utilitzar les següents llibreries
+# Introducció
+
+En aquesta tasca es practicaran els mètodes d’estimació de funcions de supervivència i la comparació, ja sigui gràfica o amb contrastos estadístics, de les funcions de supervivència de dues o més poblacions.
+
+Les dades a utilitzar són “whas100.txt”. En aquestes dades s’ha mesurat el temps, en dies, fins la mort dels pacients que han ingressat a l’hospital amb un infart agut de miocardi.
+
+S'estudiarà si hi ha diferències en els temps de supervivència dels pacients segons el gènere, ajustant per l’edat i l’índex de massa corporal per poder analitzar si els homes i les dones tenen la mateixa supervivència en un episodi d’infart de miocardi.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Es carreguen les llibreries necessàries i les dades.
 
 ```{r, include=FALSE, message=FALSE}
 library(knitr)
@@ -24,13 +33,14 @@ library(dplyr)
 data <- read.table("whas100.txt", header = TRUE)
 ```
 
-# Temps fins la mort en  infart agut de miocardi
+# Temps fins a la mort en infart agut de miocardi
 
 En aquesta tasca es practicaran els mètodes d’estimació de funcions de supervivència i la comparació ja sigui mitjançant representacions gràfiques o contrastos estadístics de les funcions de supervivència de dues o més poblacions.
 
-Les dades utilitzades corresponen al fitxer “whas100.txt”. 
+Les dades utilitzades corresponen al fitxer “whas100.txt”.
 
 ## Metadata
+
 En aquest conjunt de dades s’ha registrat el temps, expressat en dies, fins a la mort dels pacients ingressats a l’hospital a causa d’un infart agut de miocardi.
 
 Les variables a estudiar en aquest estudi
@@ -41,11 +51,12 @@ n.var2 <- names(data)
 kable(data.frame(Variables= n.var2[c(1,2,4,6,7)], Descripció= c("Temps en dies fins la mort del pacient","Indicador de censura per la dreta (censurat/observat)","Gènere del pacient (0=Home, 1=Dona)
 ","Edat (menors de 70 anys (<70), majors de 70 anys (70+))
 ","Índex massa corporal (kg/m^2) (Baix (menys de 25), Alt (25+))")))
+summary(data)
 ```
 
 Per tal d’aplicar el nostre estudi a un cas concret, es realitza una anàlisi de dades de supervivència corresponents a pacients ingressats per un infart agut de miocardi. La variable principal d’interès és el temps, mesurat en dies, fins a la mort del pacient (lenfol), tenint en compte la presència de censura per la dreta mitjançant l’indicador *fstat*.
 
-L’objectiu principal és avaluar si existeixen diferències en els temps de supervivència segons el gènere dels pacients (gender). Atès que l’edat (fage) i l’índex de massa corporal (fbmi) poden influir en la supervivència, l’anàlisi es realitzarà ajustant per aquestes variables.
+L’objectiu principal és avaluar si existeixen diferències en els temps de supervivència segons el gènere dels pacients (*gender*). Atès que l’edat (*fage*) i l’índex de massa corporal (*fbmi*) poden influir en la supervivència, l’anàlisi es realitzarà ajustant per aquestes variables.
 
 En concret, es pretén determinar si homes i dones presenten la mateixa funció de supervivència després d’un episodi d’infart agut de miocardi, tenint en compte possibles efectes de confusió associats a l’edat i a l’índex de massa corporal.
 
@@ -176,9 +187,7 @@ En el nostre cas, aquestes hipòtesis són especialment rellevants donat el p-va
 
 # Funcions de supervivència per edat
 
-Pel que fa a la variable edat, observem que es tracta d’una variable numèrica discreta que recull l’edat de tots els individus que han patit un infart. Ens interessa analitzar si l’edat pot estar relacionada amb la defunció dels pacients i, per tant, amb el seu temps de supervivència.
-
-Així doncs, per tal d’estudiar la possible relació entre l’edat dels pacients i la mortalitat, així com la seva interacció amb la variable principal d’estudi, el gènere, serà necessari classificar l’edat en grups. Aquesta categorització permetrà facilitar la comparació entre subpoblacions i analitzar de manera més clara les possibles diferències en la supervivència, utilitzant la variable fage
+Per estudiar la possible relació entre l’edat dels pacients i el temps fins a la mort, la mostra s’ha dividit en dos grups utilitzant la variable **fage**: pacients menors de 70 anys (<70) i pacients de 70 anys o més ($\geq 70$).
 
 ## Breu anàlisi descriptiva segons gènere
 
@@ -187,48 +196,53 @@ add.edat <- survfit(add ~ data$fage, conf.type = "log-log")
 print(add.edat)
 ```
 
-S’observa que la classificació per edat genera dos grups força equilibrats: la categoria 0, que inclou els pacients amb edat inferior a 70 anys, i la categoria 1, que correspon als pacients amb edat superior o igual a 70 anys. Així, els 70 anys constitueixen el punt de tall entre les dues categories analitzades.
+S'observan dos grups força equilibrats: la categoria 0, que inclou els pacients amb edat inferior a 70 anys, i la categoria 1, que correspon als pacients amb edat superior o igual a 70 anys.
 
-En comparar ambdós subgrups, s’observa que els pacients d’edat més avançada presenten un risc superior de patir l’esdeveniment d’interès, que en aquest estudi és la mort, en comparació amb els pacients més joves.
+En comparar ambdós subgrups, s’observa que els pacients d’edat més avançada presenten un risc superior de patir l’esdeveniment d’interès o event, que en aquest estudi és la mort, en comparació amb els pacients més joves.
 
-En el context de l’anàlisi de supervivència, el terme esdeveniment o fallida s’utilitza per referir-se a l’activitat d’interès que pot ocórrer a un individu, com ara la mort, l’aparició d’una malaltia, una recaiguda o la recuperació.
+El cas d'edat avançada presenta `r round((35/51)*100,2)`% d'esdeveniments, mentre que en el grup més jove, gran part de la població (`r round((1-(16/49))*100,2)`%) està censurada. Això implica que els individus més grans tenen un risc superior de mort, mentre que en els més joves una gran proporció està censurada.
 
-El cas d'edat avançada `r (35/51)*100`% contenen events mentres que en el cas de joventud `r (1-(16/49))*100` son censurats, això implica que amb més edats hi ha un risc superior a la mort, els més joves gran part de la població és censurada implicant que no tenim dades per seu risc a més a més que no tots els individus van començar a la vegada l'estudi. 
+Per avaluar si existeixen diferències segons el grup d’edat en relació amb la mortalitat després d’un infart agut de miocardi, es poden analitzar els estadístics associats a la mediana de supervivència i als seus intervals de confiança.
 
-Per tal d’avaluar si existeixen diferències segons el grup d’edat en relació amb la mortalitat després d’un infart agut de miocardi, es poden analitzar els estadístics associats a la mediana de supervivència i els seus intervals de confiança.
+En el grup de pacients de 70 anys o més s’obté una mediana de supervivència estimada de 1624 dies, cosa que indica que aproximadament el 50% dels pacients d’aquest grup han experimentat l’esdeveniment en aquest temps. En canvi, en el grup més jove no és possible estimar la mediana a causa de l’elevat nombre de dades censurades.
 
-En aquest cas, només s’obté una estimació de la mediana per al grup d’edat avançada. Això es deu al fet que, en el grup de pacients més joves, hi ha un nombre elevat de dades censurades, la qual cosa impedeix disposar d’informació suficient per estimar la mediana de supervivència.
+Pel que fa als intervals de confiança, s’observa que no hi ha solapament entre grups, fet que suggereix l’existència de diferències en la supervivència segons l’edat. 
 
-Per al grup d’edat avançada, la mediana estimada és de 1624 dies, la qual cosa indica que al cap de 1624 dies el 50% dels pacients d’aquest grup han experimentat l’esdeveniment d’interès (la mort). Pel que fa als intervals de confiança, s’observa que no hi ha solapament entre grups, fet que suggereix l’existència de diferències en la supervivència segons l’edat.
+Aquestes diferències indiquen que els pacients d’edat avançada presenten un risc més alt de patir l’esdeveniment d’interès, mentre que en els pacients més joves gran part de la població està censurada, cosa que limita la informació disponible sobre la seva supervivència.
 
-H0: $S_1=S_2$ Ees rebutja. 
 
-## Corves de supervivència per edat
+## Corbes de supervivència per edat
 
-```{rsupervivencia edat,echo=FALSE,message=FALSE,warning=FALSE}
+```{r supervivencia edat,echo=FALSE,message=FALSE,warning=FALSE}
 plot(add.edat,xlab="Temps en dies",ylab="Supervivència",lty=c(1,3))
 legend(25,0.3,c("Edad jove","avançada"),lty=c(1,3))
 title("Funcions de Supervivència per grup de edad")
 ```
 
-El gràfic de les funcions de supervivència segons el grup d’edat mostra diferències clares entre els pacients més joves (menors de 70 anys) i els d’edat avançada (70 anys o més). La corba corresponent als pacients joves es manté sistemàticament per sobre de la dels pacients de més edat al llarg de tot el període de seguiment, fet que indica una probabilitat de supervivència més elevada en el grup jove. En canvi, el grup d’edat avançada presenta una disminució més pronunciada de la funció de supervivència, especialment en els primers anys, la qual cosa suggereix un risc més alt de patir l’esdeveniment d’interès (la mort). Aquestes diferències visuals apunten a una possible associació significativa entre l’edat i el temps de supervivència després d’un infart agut de miocardi.
+El gràfic de les funcions de supervivència segons el grup d’edat mostra diferències clares entre els pacients més joves (menors de 70 anys) i els d’edat avançada (70 anys o més). La corba corresponent als pacients joves es manté sistemàticament per sobre de la dels pacients de més edat al llarg de tot el període de seguiment, fet que indica una probabilitat de supervivència més elevada en el grup jove. En canvi, el grup d’edat avançada presenta una disminució més pronunciada de la funció de supervivència, especialment en els primers anys, la qual cosa suggereix un risc més alt de patir l’esdeveniment d’interès (la mort). 
+
+Si es fa la comparació gràfica amb els intervals de confiança:
 
 ```{r interval de confiança, message=FALSE,echo=FALSE,warning=FALSE}
 ggsurvplot(add.edat, data=data,conf.int=T,xlab="Temps en dies", ylab="Supervivència", legend.labs=c("joves","Grans"),title="Funcions de Supervivència per grup de d'edat")
 ```
 
-El gràfic de les funcions de supervivència per grup d’edat, amb els corresponents intervals de confiança, mostra diferències evidents entre pacients joves i pacients d’edat avançada. La corba dels joves es manté sistemàticament per sobre de la dels grans al llarg de tot el període de seguiment, indicant una probabilitat de supervivència superior en aquest grup. En canvi, els pacients de 70 anys o més presenten una davallada més pronunciada de la supervivència, especialment en els primers anys després de l’infart. A més, tot i que els intervals de confiança s’amplien amb el temps, probablement a causa de la censura, la separació general entre les corbes suggereix l’existència d’una associació rellevant entre l’edat i el temps de supervivència després d’un infart agut de miocardi.
+El gràfic de les funcions de supervivència per grup d’edat, amb els corresponents intervals de confiança, mostra diferències evidents entre pacients joves i pacients d’edat avançada. La corba dels joves es manté sistemàticament per sobre de la dels pacients grans al llarg de tot el període de seguiment, indicant una probabilitat de supervivència superior en aquest grup. En canvi, els pacients de 70 anys o més presenten una davallada més pronunciada de la supervivència, especialment en els primers anys després de l’infart. Tot i que els intervals de confiança s’amplien amb el temps, probablement a causa de la censura, la separació general entre les corbes suggereix l’existència d’una associació rellevant entre l’edat i el temps de supervivència després d’un infart agut de miocardi. 
 
-No obstant això, l’anàlisi basada en una única variable no és suficient per determinar amb precisió la relació real existent. És possible que altres variables actuïn com a factors de confusió o que existeixin interaccions entre variables que puguin influir en el temps de supervivència. En particular, el sexe, que constitueix la variable principal d’estudi, podria estar relacionat amb l’edat o amb altres característiques dels pacients, afectant així la probabilitat de mortalitat després de patir un infart agut de miocardi. Per aquest motiu, resulta necessari considerar l’efecte conjunt de diverses variables per tal d’obtenir una anàlisi més completa i fiable de la supervivència.
+En conjunt, la representació gràfica suggereix que la diferència d'edat podria estar associada amb el temps de supervivència després d’un infart agut de miocardi, tot i que ens basem únicament en l’observació visual de les corbes de supervivència i haurà de confirmar-se posteriorment mitjançant contrastos estadístics.
 
-Així doncs, en estudiar conjuntament la variable de sexe i els grups d’edat, ens trobem davant d’un cas d’aplicació de l’estimador estratificat de Kaplan–Meier. Abans de calcular els estadístics corresponents, analitzarem aquestes relacions de manera exploratòria mitjançant representacions gràfiques i taules resum.
+No obstant això, és possible que altres variables actuïn com a factors de confusió o que existeixin interaccions que influeixin en el temps de supervivència. En particular, el sexe, que constitueix la variable principal d’estudi, podria estar relacionat amb l’edat o amb altres característiques dels pacients, afectant així la probabilitat de mortalitat després de patir un infart agut de miocardi. Per aquest motiu, resulta necessari considerar l’efecte conjunt de diverses variables per tal d’obtenir una anàlisi més completa i fiable de la supervivència.
 
-Primer estratfiquem per sexe 
+Així doncs, per estudiar conjuntament la variable de sexe i els grups d’edat, es recorre a l’estimador estratificat de Kaplan–Meier. Abans de calcular els estadístics corresponents, analitzarem aquestes relacions de manera exploratòria mitjançant representacions gràfiques i taules resum.
+
+## Estratificació amb gènere i edat
+
+En primer lloc, s’estratifica per sexe.
 
 ```{r sexe estrat ,warning=FALSE,message=FALSE,echo=FALSE}
-gen0 <- subset(data, gender==0)
+gen0 <- subset(data, gender=="Home")
 surv0 <- Surv(gen0$lenfol, gen0$fstat)
-gen1 <- subset(data, gender==1)
+gen1 <- subset(data, gender=="Dona")
 surv1 <- Surv(gen1$lenfol, gen1$fstat)
 
 surv0.age <- survfit(surv0 ~ gen0$fage, data=gen0)
@@ -257,11 +271,13 @@ arrange_ggsurvplots(list(p1, p2),
 
 ```
 
-En el gràfic de supervivència en el cas de les dones, s’aprecia una relació amb l’edat. Les dones més joves (menors de 70 anys) presenten, en general, una probabilitat de supervivència més elevada al llarg del temps, és a dir, els esdeveniments (mort després de l’infart) tendeixen a ocórrer més tard que en el grup de dones de 70 anys o més. A més, s’observen més dades censurades en aquest grup, cosa que indica que diverses pacients no han experimentat l’esdeveniment durant el període d’estudi o que el temps fins a l’esdeveniment s’allarga més del que s’esperava.
+En el gràfic de supervivència dels homes s’aprecia una relació amb l’edat. Els homes més joves (menors de 70 anys) presenten, en general, una probabilitat de supervivència més elevada al llarg del temps, és a dir, els esdeveniments (mort després de l’infart) tendeixen a ocórrer més tard que en els homes de 70 anys o més. A més, en aquest grup s’observen més dades censurades, cosa que indica que molts pacients no han experimentat l’esdeveniment durant el període d’estudi.
 
-En canvi, en el cas dels homes no sembla observar-se una diferència clara entre els grups d’edat. Les corbes de supervivència per a homes menors de 70 anys i de 70 anys o més són relativament semblants, fet que suggereix que l’edat no té un efecte tan evident sobre el temps fins a l’esdeveniment. Per tant, gràficament no s’aprecia una diferència significativa en la probabilitat de mort després d’un infart agut de miocardi segons si els homes són més joves o més grans de 70 anys.
+En canvi, en el cas de les dones no sembla observar-se una diferència clara entre els grups d’edat. Les corbes de supervivència per a dones menors de 70 anys i de 70 anys o més són relativament similars, fet que suggereix que l’edat no té un efecte tan evident sobre el temps fins a l’esdeveniment. Per tant, gràficament no s’aprecien diferències significatives en la probabilitat de mort després d’un infart agut de miocardi segons l’edat de les dones.
 
-Per observar si realment hi ha una possibilitat d'efectes de confusió o de interacció com sembla que estem anant, fem la segona estratifcació però hara per edat. 
+## Factors de confusió
+
+Per avaluar si hi ha possibles efectes de confusió o interacció, es realitza una segona estratificació, aquesta vegada per grups d’edat.
 
 ```{r edat estrats, warning=FALSE,message=FALSE,echo=FALSE}
 age0 <- subset(data, fage==0)
@@ -289,11 +305,13 @@ arrange_ggsurvplots(list(p3, p4),
 
 ```
 
-Observant els gràfics estratificats per edat, en general no s’aprecien grans diferències en la supervivència entre homes i dones dins de cada grup d’edat. Els intervals de confiança de les corbes de supervivència es solapen en gran part del temps de seguiment, cosa que suggereix que el sexe no té un efecte clarament diferenciat sobre la probabilitat de supervivència quan es fixa l’edat del pacient.
+Observant els gràfics estratificats per edat, en general no s’aprecien grans diferències en la supervivència entre homes i dones dins de cada grup d’edat. Els intervals de confiança de les corbes de supervivència es solapen durant gran part del temps de seguiment, cosa que suggereix que el sexe no té un efecte clarament diferenciat sobre la probabilitat de supervivència quan es fixa l’edat del pacient.
 
 No obstant això, en el grup d’individus menors de 70 anys es pot observar que els homes presenten una corba de supervivència lleugerament superior a la de les dones durant bona part del període analitzat. Aquesta diferència és menys evident en el grup de 70 anys o més, on les corbes són molt similars. Aquest patró pot suggerir la possible presència d’una interacció entre el sexe i l’edat en relació amb el temps fins a l’esdeveniment.
 
-Això es deu al fet que l’efecte del sexe sobre la supervivència canvia segons el grup d’edat. En el grup d’edat inferior a 70 anys s’observa que els homes presenten una supervivència superior a la de les dones, mentre que en el grup de 70 anys o més les corbes de supervivència entre homes i dones són molt més similars. Per tant, l’efecte del sexe no és constant per a tots els nivells d’edat, sinó que depèn de l’edat del pacient, fet característic d’una interacció entre les variables edat i sexe
+Això es deu al fet que l’efecte del sexe sobre la supervivència canvia segons el grup d’edat. En el grup d’edat inferior a 70 anys, s’observa que els homes presenten una supervivència superior a la de les dones, mentre que en el grup de 70 anys o més les corbes de supervivència entre homes i dones són molt més similars. Per tant, l’efecte del sexe no és constant per a tots els nivells d’edat, sinó que depèn de l’edat del pacient, fet característic d’una interacció entre les variables edat i sexe
+
+La distribució de la mostra segons edat i sexe és la següent:
 
 ```{r taula, echo=FALSE,message=FALSE,warning=FALSE}
 tab.gen.age <- table(data$gender, data$fage,
@@ -305,14 +323,30 @@ addmargins(tab.gen.age)
 
 S’observa que la proporció de dones respecte als homes és notablement més baixa en la mostra. Aquesta diferència és especialment visible en el grup de pacients amb una edat inferior als 70 anys, on hi ha 37 homes enfront de només 12 dones. Per tant, la distribució de la mostra no és equilibrada entre sexes, amb una presència clarament major d’homes, fet que podria influir en la interpretació dels resultats de l’anàlisi de supervivència.
 
+Cal tenir en compte que les corbes de supervivència s’han estimat mitjançant l’estimador de Kaplan–Meier, que permet estimar la funció de supervivència sense assumir una distribució concreta del temps fins a l’esdeveniment. No obstant això, aquest estimador assumeix que la censura és independent del temps fins a l’esdeveniment i que els individus censurats tenen el mateix comportament que els que continuen en risc. Si aquestes hipòtesis no es compleixen, la interpretació de les corbes podria veure’s afectada.
 
 
-## Contrast estadístic
+## Comparació per contrastos 
 
-Per comparar funcions de supervivència entre diferents grups, es poden utilitzar diversos contrastos estadístics. Un dels més utilitzats és el Log-Rank test, que permet avaluar si existeixen diferències significatives entre les corbes de supervivència de dos o més grups al llarg del temps. Aquest test contrasta la hipòtesi nul·la que les funcions de supervivència són iguals entre els grups, davant l’alternativa que almenys una d’elles és diferent.
+Per comparar funcions de supervivència entre diferents grups, es poden utilitzar 
+diversos contrastos estadístics. Tots ells es basen en comparar els esdeveniments 
+**observats (O)** amb els **esperats (E)** sota la hipòtesi nul·la d'igualtat 
+de corbes, però difereixen en el **pes assignat a cada temps de fallida**.
 
-En el paquet survival de R, aquesta prova es pot realitzar mitjançant la funció survdiff, que compara les corbes de supervivència estimades (normalment amb Kaplan-Meier) entre diferents categories d’una variable. A continuació s’aplica aquest contrast per analitzar possibles diferències en la supervivència segons tres variables disponibles a les dades: el grup de tractament, el gènere i el nivell de glòbuls blancs a la sang, començant pel cas del grup de tractament. Aquest anàlisi permet determinar si aquestes variables estan associades amb diferències significatives en el temps fins a l’esdeveniment.
+Concretament, el pes de cada temps $t$ de fallida és proporcional a $S(t)^\rho$, on:
 
+- $\rho = 0$ (Log-Rank): tots els temps reben el mateix pes
+- $\rho = 1$ (Peto-Wilcoxon): més pes als temps inicials
+
+Aquests tests contrasten la hipòtesi nul·la que les funcions de supervivència són iguals entre els grups, davant l’alternativa que almenys una d’elles és diferent.
+
+$$
+H_0: S_0(t) = S_1(t) \quad \forall t
+$$
+
+$$
+H_1: S_0(t) \neq S_1(t) \quad \text{per a algun } t
+$$
 
 ### Log-rank 
 
@@ -321,10 +355,17 @@ El Log-Rank és el contrast més utilitzat i dóna el mateix pes a totes les dif
 ```{r log, message=FALSE,warning=FALSE,echo=FALSE}
 test.age.lr <- survdiff(add ~ data$fage)
 test.age.lr
+```
+Alternativament podríem utilitzar l'estadístic de la variança:
+```{r varianza, message=FALSE,warning=FALSE,echo=FALSE}
 test.age.lr$var 
 sqrt(test.age.lr$chisq*test.age.lr$var[1,1])
 test.age.lr$exp
+stat_alt <-sum(test.age.lr$chisq * test.age.lr$var[1,1] / test.age.lr$exp)
+pchisq(stat_alt, df=1, lower.tail=FALSE)
 ```
+
+Tot i que el p-valor és equivalent.
 
 ### Peto
 Amb $\rho$ = 1 tenim la prova Peto que dona més pes als primers temps de fallida.
@@ -335,13 +376,30 @@ test.age.peto <- survdiff(add ~ data$fage, rho=1)
 test.age.peto
 ```
 
-En aquest cas s’han aplicat dos contrastos per comparar les funcions de supervivència segons el grup d’edat: el Log-Rank test ($\rho$ = 0) i el test de Peto ($\rho=1$).Ambdós tests són útils, però l’elecció depèn de si s’espera que les diferències entre grups apareguin de manera constant en el temps o sobretot al principi.
 
-En els resultats obtinguts, tots dos contrastos mostren valors del estadístic $\chi^2$ elevats i p-valors molt petits ($p = 4·10^{-4}$ per al Log-Rank i $p = 8·10^{-4}$ per al test de Peto), fet que indica que hi ha diferències significatives entre les funcions de supervivència dels dos grups d’edat. Per aquest estudi al no tenir un temps preferible per estudiar la evidència clara, el Log-Rank test pot considerar-se l’alternativa més adequada, al donar el mateix pes a tots els temps de l'estudi.
+En els resultats obtinguts, tots dos contrastos mostren valors de l'estadístic $\chi^2$ elevats i p-valors molt petits ($p = 4\cdot10^{-4}$ per al Log-Rank i $p = 8\cdot10^{-4}$ per al test de Peto), fet que indica que hi ha diferències significatives entre les funcions de supervivència dels dos grups d’edat. 
 
-és pot cocloure que els resultats obtinguts amb la sèrie de contrastos si que sembla haver un certa coherència entre ells i els resultats observats gràficament a aprtats anteriors. En els gràfics ja s’apreciaven diferències entre els grups d’edat en la probabilitat de supervivència, i els contrastos estadístics confirmen formalment que aquestes diferències són significatives, de manera que reforcen els resultats obtinguts anteriorment. 
+Es pot concloure que els resultats obtinguts amb la serie de contrastos si que sembla haver un certa coherència entre ells i els resultats observats gràficament a aprtats anteriors. En els gràfics ja s’apreciaven diferències entre els grups d’edat en la probabilitat de supervivència, i els contrastos estadístics confirmen formalment que aquestes diferències són significatives, de manera que reforcen els resultats obtinguts anteriorment. 
 
-## Contrast estadístic edat amg gènere
+### Fleming-Harrington
+
+
+La prova de Fleming-Harrington generalitza les anteriors mitjançant dos 
+paràmetres $(p,q)$ que controlen el pes als temps inicials i finals 
+respectivament: $w(t) = S(t)^p \cdot (1-S(t))^q$.
+
+
+```{r fh, warning=FALSE, message=FALSE,echo=FALSE}
+library(survMisc)
+add.edat2 <- survfit(Surv(lenfol, fstat) ~ fage, data=data)
+comp(ten(add.edat2))
+```
+S'observa que en el cas de p=1 i q=1 (més pes al mig) i els valors Z continuem rebutjant l'hipotesi nul·la.
+
+De fet, tot i que clinicament es podria pensar que el risc de mort és màxim just després de l'infart i tendeix a disminuir amb el temps. No obstant això, observant les corbes de supervivència, i que la separació entre el grup jove i el grup d'edat avançada és **consistent al llarg de tot el seguiment** i no és especialment més gran al principi ni al final. A priori el **Log-Rank ($\rho=0$)** és l'alternativa més adequada per 
+aquest cas, ja que assigna el mateix pes a tots els temps de l'estudi.
+
+### Factors de confusió
 
 Per comprovar possibles efectes de **confusió** o **interacció** entre el gènere i l’edat es poden utilitzar diferents estratègies. El **Log-Rank test sense estratificar** amb el **Log-Rank estratificat pel gènere**, que permet ajustar l’efecte de l’edat controlant la possible influència del gènere.
 
@@ -360,23 +418,14 @@ cat("Estratificat per gènere (O-E):",
     rowSums(test.age.strat.gen$obs - test.age.strat.gen$exp), "\n")
 ```
 
-En aquest cas, el contrast sense estratificar dona un estadístic $\chi^2=12.7$ amb $p=4\cdot10^{-4}$, mentre que el contrast estratificat dona $\chi^2=9.7$ amb $p=0.002$. Tot i que l’estadístic disminueix lleugerament després d’estratificar, el resultat continua sent significatiu i les diferències $O-E$ es mantenen similars, cosa que suggereix que el gènere no actua com un fort factor de confusió en la relació entre edat i supervivència. 
+En aquest cas, el contrast sense estratificar dona un estadístic $\chi^2=12.7$ amb $p=4\cdot10^{-4}$, mentre que el contrast estratificat dona $\chi^2=9.7$ amb $p=0.002$. La reducció de $|O-E|$ de 12.56 a 10.34 (aproximadament un 18%) després d'estratificar suggereix un **efecte de confusió moderat del gènere** sobre la relació entre edat i supervivència. En el cas estratificat, aquesta comparació es fa **dins de cada estrat de gènere** i posteriorment es combina la informació global.
 
-Pel que fa a les hipòtesis dels contrastos, tant el Log-Rank com el Log-Rank estratificat contrasten la hipòtesi nul·la que les funcions de supervivència són iguals entre els grups d’edat:
-
-$$
-H_0: S_0(t) = S_1(t) \quad \forall t
-$$
-
-$$
-H_1: S_0(t) \neq S_1(t) \quad \text{per a algun } t
-$$
-
-En el cas estratificat, aquesta comparació es fa **dins de cada estrat de gènere** i posteriorment es combina la informació global. Els p-valors obtinguts continuen sent petits, indicant evidència de diferències en la supervivència segons l’edat fins i tot després d’ajustar pel gènere.
-
-
-
-
+En ambdós casos, els p-valors obtinguts són molt inferiors al nivell de 
+significació $\alpha=0.05$, de manera que **es rebutja la hipòtesi nul·la** 
+d'igualtat de funcions de supervivència entre grups d'edat. Per tant, hi ha 
+evidència estadística suficient per concloure que existeixen diferències 
+significatives en la supervivència segons l'edat, tant abans com després de 
+controlar l'efecte del gènere.
 
 # Pregunta 6. 
 # Comparació per contrastos de les funcions de supervivència per índex de massa corporal
