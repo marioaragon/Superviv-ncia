@@ -1,11 +1,14 @@
 ---
-title: "Tasca 1: Estimació i comparació de funcions de supervivència"
+title: 'Tasca 1: Estimació i comparació de funcions de supervivència'
 author: "Mario Aragón, Laura Belmonte, Lena Lledós, Miguel Rodríguez"
 date: "`r Sys.Date()`"
 output:
   pdf_document:
     toc: true
     toc_depth: 2
+  word_document:
+    toc: true
+    toc_depth: '2'
 ---
 
 \newpage
@@ -110,7 +113,7 @@ Donat que hi ha intersecció entre els intervals de confiança per la mediana en
 ```{r, echo=FALSE}
 ggsurvplot(add.gen, data = data, conf.int = TRUE, 
            xlab = "Temps en dies", ylab = "Supervivència",
-           legend.labs = c("Homes", "Dones"),
+           legend.labs = c("Dones", "Homes"),
            title = "Funcions de Supervivència per gènere",
            xlim = c(0, max(data$lenfol)))
 ```
@@ -149,7 +152,7 @@ En aquest cas no es pot assegurar la intersecció donat que no es disposa de dad
 ```{r, echo=FALSE}
 ggsurvplot(add.gen, data = data, conf.int = TRUE,
            xlab = "Temps en dies", ylab = "Supervivència",
-           legend.labs = c("Homes", "Dones"),
+           legend.labs = c("Dones", "Homes"),
            title = "Funcions de Supervivència per gènere",
            xlim = c(0, max(data$lenfol)),
            pval = TRUE,
