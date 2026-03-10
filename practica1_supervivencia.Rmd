@@ -2,12 +2,14 @@
 title: "Tasca 1: Estimació i comparació de funcions de supervivència"
 author: "Mario Aragón, Laura Belmonte, Lena Lledós, Miguel Rodríguez"
 date: "`r Sys.Date()`"
-output: pdf_document
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 2
 ---
 
 \newpage
 \renewcommand{\contentsname}{Índex}
-\tableofcontents
 \newpage
 
 # Introducció
@@ -30,6 +32,8 @@ library(survival)
 library(survival)
 library(survminer)
 library(dplyr)
+library(survMisc)
+library(coin)
 data <- read.table("whas100.txt", header = TRUE)
 ```
 
@@ -165,9 +169,38 @@ El test **log-rank** dona un **p-valor de 0.05**, que és exactament el llindar 
 
 Els homes presenten més morts observades de les esperades (28 vs 34.6), mentre que en les dones passa el contrari (23 vs 16.4), la qual cosa suggeriria que les dones tenen pitjor supervivència. Però aquesta diferència no és prou gran per ser concloent.
 
+**Peto**
+
+Com ja s'ha explicat, Peto assigna pesos de manera que prioritza detectar diferencias en instàncies primerenques de l'estudi. Ho fa a partir de l'estimació de la corva de supervivència de Kaplan-Meier: $$w_i = \hat{S}(t_i)$$
+
+```{r}
+test.peto <- survdiff(add ~ data$gender, rho = 1)
+test.peto
+```
+El p-valor resulta idèntic al de la prova log-rank.
+
+**Fleming-Harrington**
+
+Un gran avantatge d'aquest mètode és la flexibilitat a l'hora de definir en quin moment interesa detectar les diferències. Així doncs, a continuació es fa la prova donant prioritat a l'inici, al final i també amb uns pesos més uniformes.
+
+```{r}
+# FH(1,0) - prioritat a l'inici
+logrank_test(Surv(lenfol, fstat) ~ factor(gender), data = data, 
+             type = "Fleming-Harrington", rho = 1, gamma = 0)
+
+# FH(0,1) - prioritat al final
+logrank_test(Surv(lenfol, fstat) ~ factor(gender), data = data, 
+             type = "Fleming-Harrington", rho = 0, gamma = 1)
+
+# FH(1,1) - pes intermedi
+logrank_test(Surv(lenfol, fstat) ~ factor(gender), data = data, 
+             type = "Fleming-Harrington", rho = 1, gamma = 1)
+```
+Cap variant és significativa al nivell $$\alpha = 0.05$$. Tot i això, FH(1,0) s'acosta a la significació (p = 0.053), la qual cosa suggereix una tendència a diferències en els temps inicials de la supervivència entre homes i dones, encara que no és suficient per rebutjar la hipòtesi nul·la.
+
 ## Coherència entre mètodes i conclusions
 
-Els resultats del contrast log-rank són coherents amb els obtinguts a la descriptiva, que ja apuntava a una possible diferència entre gèneres —amb una mortalitat observada de 65.7% en dones enfront del 43.1% en homes— però el reduït tamany mostral, especialment del grup de dones (n=35), comporta una major variància en les estimacions. Això es tradueix en intervals de confiança amplis i solapats a les corbes de supervivència, i també redueix la potència del test log-rank, fet que explica el p-valor limítrofe obtingut (p=0.05).
+Els resultats dels contrastos log-rank, Peto i Fleming-Harrington són coherents amb els obtinguts a la descriptiva, que ja apuntava a una possible diferència entre gèneres —amb una mortalitat observada de 65.7% en dones enfront del 43.1% en homes— però el reduït tamany mostral, especialment del grup de dones (n=35), comporta una major variància en les estimacions. Això es tradueix en intervals de confiança amplis i solapats a les corbes de supervivència, i també redueix la potència del test log-rank, fet que explica el p-valor limítrofe obtingut (p=0.05).
 
 En conclusió: **No es pot afirmar que hi hagi diferències estadísticament significatives entre gèneres**, però **tampoc es pot descartar completament**. El desequilibri en la mida de les mostres —65 homes davant 35 dones— limita la potència del contrast i dificulta l'extracció de conclusions fermes. Amb mostres més grans i equilibrades, els resultats serien més fiables i permetrien una interpretació més clara.
 
