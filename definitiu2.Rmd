@@ -1,0 +1,665 @@
+---
+title: "Tasca 1: Estimació i comparació de funcions de supervivència"
+author: "Mario Aragón, Laura Belmonte, Lena Lledós, Miguel Rodríguez"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+\newpage
+\renewcommand{\contentsname}{Índex}
+\tableofcontents
+\newpage
+
+# Introducció
+
+En aquesta tasca es practicaran els mètodes d’estimació de funcions de supervivència i la comparació, ja sigui gràfica o amb contrastos estadístics, de les funcions de supervivència de dues o més poblacions.
+
+Les dades a utilitzar són “whas100.txt”. En aquestes dades s’ha mesurat el temps, en dies, fins la mort dels pacients que han ingressat a l’hospital amb un infart agut de miocardi.
+
+S'estudiarà si hi ha diferències en els temps de supervivència dels pacients segons el gènere, ajustant per l’edat i l’índex de massa corporal per poder analitzar si els homes i les dones tenen la mateixa supervivència en un episodi d’infart de miocardi.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Es carreguen les llibreries necessàries i les dades.
+
+```{r, include=FALSE, message=FALSE}
+library(knitr)
+library(survival)
+library(survival)
+library(survminer)
+library(dplyr)
+data <- read.table("whas100.txt", header = TRUE)
+```
+
+En aquesta tasca es practicaran els mètodes d’estimació de funcions de supervivència i la comparació ja sigui mitjançant representacions gràfiques o contrastos estadístics de les funcions de supervivència de dues o més poblacions.
+
+Les dades utilitzades corresponen al fitxer “whas100.txt”.
+
+## Metadata
+
+En aquest conjunt de dades s’ha registrat el temps, expressat en dies, fins a la mort dels pacients ingressats a l’hospital a causa d’un infart agut de miocardi.
+
+Les variables a estudiar en aquest estudi:
+
+```{r, echo=FALSE}
+data$gender <- factor(data$gender, levels = c(0, 1), labels = c("Home", "Dona"))
+n.var2 <- names(data)
+kable(data.frame(Variables= n.var2[c(1,2,4,6,7)], Descripció= c("Temps en dies fins la mort del pacient","Indicador de censura per la dreta (censurat/observat)","Gènere del pacient (0=Home, 1=Dona)
+","Edat (menors de 70 anys (<70), majors de 70 anys (70+))
+","Índex massa corporal (kg/m^2) (Baix (menys de 25), Alt (25+))")))
+summary(data)
+```
+
+Per tal d’aplicar el nostre estudi a un cas concret, es realitza una anàlisi de dades de supervivència corresponents a pacients ingressats per un infart agut de miocardi. La variable principal d’interès és el temps, mesurat en dies, fins a la mort del pacient (lenfol), tenint en compte la presència de censura per la dreta mitjançant l’indicador *fstat*.
+
+L’objectiu principal és avaluar si existeixen diferències en els temps de supervivència segons el gènere dels pacients (*gender*). Atès que l’edat (*fage*) i l’índex de massa corporal (*fbmi*) poden influir en la supervivència, l’anàlisi es realitzarà ajustant per aquestes variables.
+
+En concret, es pretén determinar si homes i dones presenten la mateixa funció de supervivència després d’un episodi d’infart agut de miocardi, tenint en compte possibles efectes de confusió associats a l’edat i a l’índex de massa corporal.
+
+# Funcions de supervivència per gènere
+
+## Breu anàlisi descriptiva segons gènere
+
+```{r, echo=FALSE}
+homes <- data[data$gender == "Home", ]
+dones <- data[data$gender == "Dona", ]
+resum <- data.frame(
+  ` ` = c("N", "Morts (n)", "Morts (%)", "Mediana seguiment (dies)", "Mitjana seguiment (dies)"),
+  Homes = c(
+    nrow(homes),
+    sum(homes$fstat),
+    paste0(round(mean(homes$fstat) * 100, 1), "%"),
+    median(homes$lenfol),
+    round(mean(homes$lenfol), 1)
+  ),
+  Dones = c(
+    nrow(dones),
+    sum(dones$fstat),
+    paste0(round(mean(dones$fstat) * 100, 1), "%"),
+    median(dones$lenfol),
+    round(mean(dones$lenfol), 1)
+  ),
+  check.names = FALSE
+)
+kable(resum, caption = "Descriptiva per gènere")
+```
+
+**Aspectes a destacar:**
+
+-   **Mostra desequilibrada**: hi ha gairebé el doble d'homes (65) que de dones (35), cosa que cal tenir en compte a l'hora d'interpretar les comparacions entre grups.
+
+-   **Les dones presenten una mortalitat observada més alta** (65.7% vs 43.1%), una diferència de més de 20 punts percentuals que ja apunta a un possible efecte del gènere sobre la supervivència.
+
+-   **El temps de seguiment és similar entre grups** (mediana de 1916 dies en homes vs 1806 en dones), la qual cosa indica que la diferència en mortalitat no s'explica per un seguiment més prolongat en un dels grups.
+
+En conjunt, la descriptiva suggereix una tendència cap a pitjor supervivència en les dones, però donada la gran diferència de tamany de les mostres de dones i homes caldrà fer un anàlisi més profund per comprovar-ho.
+
+## Intervals de confiança per la mediana
+
+```{r}
+add <- Surv(time = data$lenfol, event = as.numeric(as.character(data$fstat)))
+add.gen <- survfit(add ~ data$gender, conf.type = "log-log")
+print(add.gen)
+```
+
+La mediana de supervivència dels homes és de 2624 dies (IC 95%: 1907 – NA), mentre que la de les dones és de 1806 dies (IC 95%: 461 – 2201).
+
+Donat que hi ha intersecció entre els intervals de confiança per la mediana entre homes i dones no es pot dir que hi hagi diferències estadísticament significatives entre els grups pel que fa a la mediana.
+
+## Corbes de supervivència per gènere
+
+```{r}
+ggsurvplot(add.gen, data = data, conf.int = TRUE, 
+           xlab = "Temps en dies", ylab = "Supervivència",
+           legend.labs = c("Homes", "Dones"),
+           title = "Funcions de Supervivència per gènere",
+           xlim = c(0, max(data$lenfol)))
+```
+
+Gràficament no es pot constatar que hi hagi diferències entre gèneres, donat que els intervals de confiança de totes dues corbes estan solapats en tot el temps d'estudi.
+
+Per contrastar aquest resultat, a continuació es procedirà a aplicar el mètode de **Nelson-Aalen**:
+
+```{r}
+add.gen <- survfit(add ~ data$gender, 
+                   conf.type = "log",
+                   type = "fh")
+print(add.gen)
+```
+
+En aquest cas no es pot assegurar la intersecció donat que no es disposa de dades que permetin tancar els intèrvals per la dreta. Gràficament:
+
+```{r}
+ggsurvplot(add.gen, data = data, conf.int = TRUE,
+           xlab = "Temps en dies", ylab = "Supervivència",
+           legend.labs = c("Homes", "Dones"),
+           title = "Funcions de Supervivència per gènere",
+           xlim = c(0, max(data$lenfol)),
+           pval = TRUE,
+           risk.table = TRUE,
+           ggtheme = theme_minimal())
+```
+
+Els resultats obtinguts mitjançant el mètode de Nelson-Aalen apunten en la mateixa direcció que els observats amb el mètode de Kaplan-Meier, reforçant la idea que no es pot afirmar amb certesa que el gènere influeixi en el temps de supervivència post-infart de miocardi.
+
+Per entendre per què, cal fixar-se en els intervals de confiança de les dues corbes de supervivència. Aquests intervals representen el marge d'incertesa al voltant de cada estimació: com més se solapen entre elles, menys clara és la diferència entre els dos grups. En el nostre cas, els intervals de les corbes d'homes i dones es creuen de manera notable al llarg de tot el seguiment, la qual cosa indica que les diferències observades podrien ser fruit de l'atzar i no d'una diferència real entre gèneres.
+
+En altres paraules: encara que les corbes no siguin idèntiques, l'evidència estadística (gràfica) no és suficient per concloure que homes i dones tinguin un temps fins la mort diferent post infart de miocardi.
+
+Per tal de donar suport numèric a aquesta idea, es procedirà a realitzar un test chi-quadrat per mesurar la significància de les diferències entre grups.
+
+## Contrast estadístic
+
+Per comparar les corbes de supervivència es poden considerar el contrast **log-rank**, el **Peto** i el **Fleming-Harrington**. La diferència entre ells és el pes que assignen a cada moment del seguiment: Peto prioritza els esdeveniments primerencs, mentre que el log-rank tracta tots els moments de manera equitativa.Fleming-Harrington permet ajustar mitjançant dos paràmetres (p, q) en quin moment del seguiment es vol maximitzar la potència del test.
+
+En el nostre cas, les corbes mostren una separació constant al llarg de tot el seguiment sense creuaments, i l'objectiu és detectar si hi ha diferències globals entre gèneres, no en un moment concret. Per tant, el **log-rank** és l'alternativa més adequada.
+
+```{r}
+test.grup <- survdiff(add ~ data$gender)
+test.grup
+```
+
+El test **log-rank** dona un **p-valor de 0.05**, que és exactament el llindar convencional de significació estadística. Això vol dir que estem en una zona ambigua: el resultat no permet ni afirmar ni descartar amb claredat que hi hagi diferències entre homes i dones.
+
+Els homes presenten més morts observades de les esperades (28 vs 34.6), mentre que en les dones passa el contrari (23 vs 16.4), la qual cosa suggeriria que les dones tenen pitjor supervivència. Però aquesta diferència no és prou gran per ser concloent.
+
+## Coherència entre mètodes i conclusions
+
+Els resultats del contrast log-rank són coherents amb els obtinguts a la descriptiva, que ja apuntava a una possible diferència entre gèneres —amb una mortalitat observada de 65.7% en dones enfront del 43.1% en homes— però el reduït tamany mostral, especialment del grup de dones (n=35), comporta una major variància en les estimacions. Això es tradueix en intervals de confiança amplis i solapats a les corbes de supervivència, i també redueix la potència del test log-rank, fet que explica el p-valor limítrofe obtingut (p=0.05).
+
+En conclusió: **No es pot afirmar que hi hagi diferències estadísticament significatives entre gèneres**, però **tampoc es pot descartar completament**. El desequilibri en la mida de les mostres —65 homes davant 35 dones— limita la potència del contrast i dificulta l'extracció de conclusions fermes. Amb mostres més grans i equilibrades, els resultats serien més fiables i permetrien una interpretació més clara.
+
+## Consideracions sobre les hipòtesis dels estimadors i del test de contrast
+
+Els estimadors de Kaplan-Meier i Nelson-Aalen es basen en una sèrie d'hipòtesis que cal tenir en compte a l'hora d'interpretar els resultats.
+
+-   La més important és la **censura no informativa**: s'assumeix que els pacients censurats, és a dir, aquells dels quals deixem d'observar l'evolució abans que es produeixi l'esdeveniment, tenen el mateix risc de morir que els pacients que continuen en seguiment. Si els pacients censurats haguessin abandonat l'estudi per motius relacionats amb el seu estat de salut, els estimadors estarien esbiaixats i els resultats no reflectirien la realitat.
+
+-   Estretament relacionada amb l'anterior és la **hipòtesi d'independència de les censures**: el moment en què un pacient és censurat no ha de dependre del seu temps de supervivència real. En el nostre cas, si les censures es deuen principalment al final del període d'estudi i no a una pèrdua de seguiment selectiva, aquesta condició és més fàcil de satisfer.
+
+-   Finalment, **l'estimador de Kaplan-Meier assumeix que els individus censurats han sobreviscut almenys fins al moment de censura**, i extén la seva contribució fins al següent esdeveniment observat. Això fa que l'estimació tendeixi a ser lleugerament optimista: si alguns pacients censurats haguessin mort poc després de ser retirats de l'estudi, KM estaria sobreestimant la supervivència real.
+
+-   El contrast log-rank assumeix **hazards proporcionals**: **el risc relatiu entre grups ha de ser constant al llarg del temps**. Això és coherent amb el fet que assigni el mateix pes a tots els moments temporals — si el risc relatiu no canvia, cap moment és més informatiu que un altre. En el nostre cas, les corbes no es creuen ni mostren canvis bruscos, la qual cosa és consistent amb aquesta hipòtesi i valida l'ús del log-rank front a alternatives com el Wilcoxon o el Fleming-Harrington.
+
+En el nostre cas, aquestes hipòtesis són especialment rellevants donat el p-valor limítrofe obtingut (p = 0.05). Una censura que no fos del tot aleatòria podria estar alterant artificialment les diferències observades entre homes i dones, de manera que amb un disseny d'estudi diferent o un seguiment més prolongat, la conclusió podria variar.
+
+# Funcions de supervivència per edat
+
+Per estudiar la possible relació entre l’edat dels pacients i el temps fins a la mort, la mostra s’ha dividit en dos grups utilitzant la variable **fage**: pacients menors de 70 anys (\<70) i pacients de 70 anys o més ($\geq 70$).
+
+## Breu anàlisi descriptiva segons gènere
+
+```{r, warning=FALSE,echo=FALSE,message=FALSE}
+add.edat <- survfit(add ~ data$fage, conf.type = "log-log")
+print(add.edat)
+```
+
+S'observan dos grups força equilibrats: la categoria 0, que inclou els pacients amb edat inferior a 70 anys, i la categoria 1, que correspon als pacients amb edat superior o igual a 70 anys.
+
+En comparar ambdós subgrups, s’observa que els pacients d’edat més avançada presenten un risc superior de patir l’esdeveniment d’interès o event, que en aquest estudi és la mort, en comparació amb els pacients més joves.
+
+El cas d'edat avançada presenta `r round((35/51)*100,2)`% d'esdeveniments, mentre que en el grup més jove, gran part de la població (`r round((1-(16/49))*100,2)`%) està censurada. Això implica que els individus més grans tenen un risc superior de mort, mentre que en els més joves una gran proporció està censurada.
+
+Per avaluar si existeixen diferències segons el grup d’edat en relació amb la mortalitat després d’un infart agut de miocardi, es poden analitzar els estadístics associats a la mediana de supervivència i als seus intervals de confiança.
+
+En el grup de pacients de 70 anys o més s’obté una mediana de supervivència estimada de 1624 dies, cosa que indica que aproximadament el 50% dels pacients d’aquest grup han experimentat l’esdeveniment en aquest temps. En canvi, en el grup més jove no és possible estimar la mediana a causa de l’elevat nombre de dades censurades.
+
+Pel que fa als intervals de confiança, s’observa que no hi ha solapament entre grups, fet que suggereix l’existència de diferències en la supervivència segons l’edat.
+
+Aquestes diferències indiquen que els pacients d’edat avançada presenten un risc més alt de patir l’esdeveniment d’interès, mentre que en els pacients més joves gran part de la població està censurada, cosa que limita la informació disponible sobre la seva supervivència.
+
+## Corbes de supervivència per edat
+
+```{r supervivencia edat,echo=FALSE,message=FALSE,warning=FALSE}
+plot(add.edat,xlab="Temps en dies",ylab="Supervivència",lty=c(1,3))
+legend(25,0.3,c("Edad jove","avançada"),lty=c(1,3))
+title("Funcions de Supervivència per grup de edad")
+```
+
+El gràfic de les funcions de supervivència segons el grup d’edat mostra diferències clares entre els pacients més joves (menors de 70 anys) i els d’edat avançada (70 anys o més). La corba corresponent als pacients joves es manté sistemàticament per sobre de la dels pacients de més edat al llarg de tot el període de seguiment, fet que indica una probabilitat de supervivència més elevada en el grup jove. En canvi, el grup d’edat avançada presenta una disminució més pronunciada de la funció de supervivència, especialment en els primers anys, la qual cosa suggereix un risc més alt de patir l’esdeveniment d’interès (la mort).
+
+Si es fa la comparació gràfica amb els intervals de confiança:
+
+```{r interval de confiança, message=FALSE,echo=FALSE,warning=FALSE}
+ggsurvplot(add.edat, data=data,conf.int=T,xlab="Temps en dies", ylab="Supervivència", legend.labs=c("joves","Grans"),title="Funcions de Supervivència per grup de d'edat")
+```
+
+El gràfic de les funcions de supervivència per grup d’edat, amb els corresponents intervals de confiança, mostra diferències evidents entre pacients joves i pacients d’edat avançada. La corba dels joves es manté sistemàticament per sobre de la dels pacients grans al llarg de tot el període de seguiment, indicant una probabilitat de supervivència superior en aquest grup. En canvi, els pacients de 70 anys o més presenten una davallada més pronunciada de la supervivència, especialment en els primers anys després de l’infart. Tot i que els intervals de confiança s’amplien amb el temps, probablement a causa de la censura, la separació general entre les corbes suggereix l’existència d’una associació rellevant entre l’edat i el temps de supervivència després d’un infart agut de miocardi.
+
+En conjunt, la representació gràfica suggereix que la diferència d'edat podria estar associada amb el temps de supervivència després d’un infart agut de miocardi, tot i que ens basem únicament en l’observació visual de les corbes de supervivència i haurà de confirmar-se posteriorment mitjançant contrastos estadístics.
+
+No obstant això, és possible que altres variables actuïn com a factors de confusió o que existeixin interaccions que influeixin en el temps de supervivència. En particular, el sexe, que constitueix la variable principal d’estudi, podria estar relacionat amb l’edat o amb altres característiques dels pacients, afectant així la probabilitat de mortalitat després de patir un infart agut de miocardi. Per aquest motiu, resulta necessari considerar l’efecte conjunt de diverses variables per tal d’obtenir una anàlisi més completa i fiable de la supervivència.
+
+Així doncs, per estudiar conjuntament la variable de sexe i els grups d’edat, es recorre a l’estimador estratificat de Kaplan–Meier. Abans de calcular els estadístics corresponents, analitzarem aquestes relacions de manera exploratòria mitjançant representacions gràfiques i taules resum.
+
+## Estratificació amb gènere i edat
+
+En primer lloc, s’estratifica per sexe.
+
+```{r sexe estrat ,warning=FALSE,message=FALSE,echo=FALSE}
+gen0 <- subset(data, gender=="Home")
+surv0 <- Surv(gen0$lenfol, gen0$fstat)
+gen1 <- subset(data, gender=="Dona")
+surv1 <- Surv(gen1$lenfol, gen1$fstat)
+
+surv0.age <- survfit(surv0 ~ gen0$fage, data=gen0)
+surv1.age <- survfit(surv1 ~ gen1$fage, data=gen1)
+surv0.age <- survfit(surv0 ~ gen0$fage, data=gen0)
+surv1.age <- survfit(surv1 ~ gen1$fage, data=gen1)
+
+```
+
+```{r sexe estrat graph,warning=FALSE,message=FALSE,echo=FALSE}
+
+p1 <- ggsurvplot(surv0.age, data=gen0,
+                 conf.int=TRUE,
+                 legend.labs=c("<70","≥70"),
+                 title="Homes",
+                 xlab="Dies", ylab="Supervivència")
+
+p2 <- ggsurvplot(surv1.age, data=gen1,
+                 conf.int=TRUE,
+                 legend.labs=c("<70","≥70"),
+                 title="Dones",
+                 xlab="Dies", ylab="Supervivència")
+
+arrange_ggsurvplots(list(p1, p2),
+                    ncol=2, nrow=1)
+
+```
+
+En el gràfic de supervivència dels homes s’aprecia una relació amb l’edat. Els homes més joves (menors de 70 anys) presenten, en general, una probabilitat de supervivència més elevada al llarg del temps, és a dir, els esdeveniments (mort després de l’infart) tendeixen a ocórrer més tard que en els homes de 70 anys o més. A més, en aquest grup s’observen més dades censurades, cosa que indica que molts pacients no han experimentat l’esdeveniment durant el període d’estudi.
+
+En canvi, en el cas de les dones no sembla observar-se una diferència clara entre els grups d’edat. Les corbes de supervivència per a dones menors de 70 anys i de 70 anys o més són relativament similars, fet que suggereix que l’edat no té un efecte tan evident sobre el temps fins a l’esdeveniment. Per tant, gràficament no s’aprecien diferències significatives en la probabilitat de mort després d’un infart agut de miocardi segons l’edat de les dones.
+
+## Factors de confusió
+
+Per avaluar si hi ha possibles efectes de confusió o interacció, es realitza una segona estratificació, aquesta vegada per grups d’edat.
+
+```{r edat estrats, warning=FALSE,message=FALSE,echo=FALSE}
+age0 <- subset(data, fage==0)
+surv.a0 <- Surv(age0$lenfol, age0$fstat)
+age1 <- subset(data, fage==1)
+surv.a1 <- Surv(age1$lenfol, age1$fstat)
+
+surv.a0.gen <- survfit(surv.a0 ~ age0$gender, data=age0)
+surv.a1.gen <- survfit(surv.a1 ~ age1$gender, data=age1)
+
+p3<-ggsurvplot(surv.a0.gen, data=age0,
+           conf.int=TRUE,
+           legend.labs=c("Home","Dona"),
+           title="Supervivència <70 anys",
+           xlab="Dies", ylab="Supervivència")
+
+p4<-ggsurvplot(surv.a1.gen, data=age1,
+           conf.int=TRUE,
+           legend.labs=c("Home","Dona"),
+           title="Supervivència ≥70 anys",
+           xlab="Dies", ylab="Supervivència")
+
+arrange_ggsurvplots(list(p3, p4),
+                    ncol=2, nrow=1)
+
+```
+
+Observant els gràfics estratificats per edat, en general no s’aprecien grans diferències en la supervivència entre homes i dones dins de cada grup d’edat. Els intervals de confiança de les corbes de supervivència es solapen durant gran part del temps de seguiment, cosa que suggereix que el sexe no té un efecte clarament diferenciat sobre la probabilitat de supervivència quan es fixa l’edat del pacient.
+
+No obstant això, en el grup d’individus menors de 70 anys es pot observar que els homes presenten una corba de supervivència lleugerament superior a la de les dones durant bona part del període analitzat. Aquesta diferència és menys evident en el grup de 70 anys o més, on les corbes són molt similars. Aquest patró pot suggerir la possible presència d’una interacció entre el sexe i l’edat en relació amb el temps fins a l’esdeveniment.
+
+Això es deu al fet que l’efecte del sexe sobre la supervivència canvia segons el grup d’edat. En el grup d’edat inferior a 70 anys, s’observa que els homes presenten una supervivència superior a la de les dones, mentre que en el grup de 70 anys o més les corbes de supervivència entre homes i dones són molt més similars. Per tant, l’efecte del sexe no és constant per a tots els nivells d’edat, sinó que depèn de l’edat del pacient, fet característic d’una interacció entre les variables edat i sexe
+
+La distribució de la mostra segons edat i sexe és la següent:
+
+```{r taula, echo=FALSE,message=FALSE,warning=FALSE}
+tab.gen.age <- table(data$gender, data$fage,
+                     dnn=c("Gènere","Edat"))
+rownames(tab.gen.age) <- c("Home","Dona")
+colnames(tab.gen.age) <- c("inferior 70","superior 70")
+addmargins(tab.gen.age)
+```
+
+S’observa que la proporció de dones respecte als homes és notablement més baixa en la mostra. Aquesta diferència és especialment visible en el grup de pacients amb una edat inferior als 70 anys, on hi ha 37 homes enfront de només 12 dones. Per tant, la distribució de la mostra no és equilibrada entre sexes, amb una presència clarament major d’homes, fet que podria influir en la interpretació dels resultats de l’anàlisi de supervivència.
+
+Cal tenir en compte que les corbes de supervivència s’han estimat mitjançant l’estimador de Kaplan–Meier, que permet estimar la funció de supervivència sense assumir una distribució concreta del temps fins a l’esdeveniment. No obstant això, aquest estimador assumeix que la censura és independent del temps fins a l’esdeveniment i que els individus censurats tenen el mateix comportament que els que continuen en risc. Si aquestes hipòtesis no es compleixen, la interpretació de les corbes podria veure’s afectada.
+
+## Comparació per contrastos
+
+Per comparar funcions de supervivència entre diferents grups, es poden utilitzar diversos contrastos estadístics. Tots ells es basen en comparar els esdeveniments **observats (O)** amb els **esperats (E)** sota la hipòtesi nul·la d'igualtat de corbes, però difereixen en el **pes assignat a cada temps de fallida**.
+
+Concretament, el pes de cada temps $t$ de fallida és proporcional a $S(t)^\rho$, on:
+
+-   $\rho = 0$ (Log-Rank): tots els temps reben el mateix pes
+-   $\rho = 1$ (Peto-Wilcoxon): més pes als temps inicials
+
+Aquests tests contrasten la hipòtesi nul·la que les funcions de supervivència són iguals entre els grups, davant l’alternativa que almenys una d’elles és diferent.
+
+$$
+H_0: S_0(t) = S_1(t) \quad \forall t
+$$
+
+$$
+H_1: S_0(t) \neq S_1(t) \quad \text{per a algun } t
+$$
+
+### Log-rank
+
+El Log-Rank és el contrast més utilitzat i dóna el mateix pes a totes les diferències entre les corbes de supervivència al llarg del temps.
+
+```{r log, message=FALSE,warning=FALSE,echo=FALSE}
+test.age.lr <- survdiff(add ~ data$fage)
+test.age.lr
+```
+
+Alternativament podríem utilitzar l'estadístic de la variança:
+
+```{r varianza, message=FALSE,warning=FALSE,echo=FALSE}
+test.age.lr$var 
+sqrt(test.age.lr$chisq*test.age.lr$var[1,1])
+test.age.lr$exp
+stat_alt <-sum(test.age.lr$chisq * test.age.lr$var[1,1] / test.age.lr$exp)
+pchisq(stat_alt, df=1, lower.tail=FALSE)
+```
+
+Tot i que el p-valor és equivalent.
+
+### Peto
+
+Amb $\rho$ = 1 tenim la prova Peto que dona més pes als primers temps de fallida. Per exemple, pel cas de les funcions de supervivència per grup de individus més joves:
+
+```{r peto, warning=FALSE, message=FALSE,echo=FALSE}
+test.age.peto <- survdiff(add ~ data$fage, rho=1)
+test.age.peto
+```
+
+En els resultats obtinguts, tots dos contrastos mostren valors de l'estadístic $\chi^2$ elevats i p-valors molt petits ($p = 4\cdot10^{-4}$ per al Log-Rank i $p = 8\cdot10^{-4}$ per al test de Peto), fet que indica que hi ha diferències significatives entre les funcions de supervivència dels dos grups d’edat.
+
+Es pot concloure que els resultats obtinguts amb la serie de contrastos si que sembla haver un certa coherència entre ells i els resultats observats gràficament a aprtats anteriors. En els gràfics ja s’apreciaven diferències entre els grups d’edat en la probabilitat de supervivència, i els contrastos estadístics confirmen formalment que aquestes diferències són significatives, de manera que reforcen els resultats obtinguts anteriorment.
+
+### Fleming-Harrington
+
+La prova de Fleming-Harrington generalitza les anteriors mitjançant dos paràmetres $(p,q)$ que controlen el pes als temps inicials i finals respectivament: $w(t) = S(t)^p \cdot (1-S(t))^q$.
+
+```{r fh, warning=FALSE, message=FALSE,echo=FALSE}
+library(survMisc)
+add.edat2 <- survfit(Surv(lenfol, fstat) ~ fage, data=data)
+comp(ten(add.edat2))
+```
+
+S'observa que en el cas de p=1 i q=1 (més pes al mig) i els valors Z continuem rebutjant l'hipotesi nul·la.
+
+De fet, tot i que clinicament es podria pensar que el risc de mort és màxim just després de l'infart i tendeix a disminuir amb el temps. No obstant això, observant les corbes de supervivència, i que la separació entre el grup jove i el grup d'edat avançada és **consistent al llarg de tot el seguiment** i no és especialment més gran al principi ni al final. A priori el **Log-Rank (**$\rho=0$) és l'alternativa més adequada per aquest cas, ja que assigna el mateix pes a tots els temps de l'estudi.
+
+### Factors de confusió
+
+Per comprovar possibles efectes de **confusió** o **interacció** entre el gènere i l’edat es poden utilitzar diferents estratègies. El **Log-Rank test sense estratificar** amb el **Log-Rank estratificat pel gènere**, que permet ajustar l’efecte de l’edat controlant la possible influència del gènere.
+
+```{r, message=FALSE,warning=FALSE, echo=FALSE}
+# Log-Rank estratificat per gènere 
+test.age.strat.gen <- survdiff(add ~ data$fage + strata(data$gender))
+test.age.strat.gen
+
+# Comparació: O-E sense i amb estratificació
+test.age.lr$obs - test.age.lr$exp
+rowSums(test.age.strat.gen$obs - test.age.strat.gen$exp)
+
+cat("Sense estratificar (O-E):",
+    test.age.lr$obs - test.age.lr$exp, "\n")
+cat("Estratificat per gènere (O-E):",
+    rowSums(test.age.strat.gen$obs - test.age.strat.gen$exp), "\n")
+```
+
+En aquest cas, el contrast sense estratificar dona un estadístic $\chi^2=12.7$ amb $p=4\cdot10^{-4}$, mentre que el contrast estratificat dona $\chi^2=9.7$ amb $p=0.002$. La reducció de $|O-E|$ de 12.56 a 10.34 (aproximadament un 18%) després d'estratificar suggereix un **efecte de confusió moderat del gènere** sobre la relació entre edat i supervivència. En el cas estratificat, aquesta comparació es fa **dins de cada estrat de gènere** i posteriorment es combina la informació global.
+
+En ambdós casos, els p-valors obtinguts són molt inferiors al nivell de significació $\alpha=0.05$, de manera que **es rebutja la hipòtesi nul·la** d'igualtat de funcions de supervivència entre grups d'edat. Per tant, hi ha evidència estadística suficient per concloure que existeixen diferències significatives en la supervivència segons l'edat, tant abans com després de controlar l'efecte del gènere.
+
+# Funcions de supervivència per índex de massa corporal
+
+L'índex de massa corporal és una mesura àmpliament utilitzada per valorar si el pes d'una persona és adequat en relació amb la seva alçada. En l'àmbit clínic, se sap que tant un pes molt baix com un excés de pes poden influir en l'estat de salut general i en la recuperació després d'esdeveniments greus com un infart. Per aquest motiu, resulta rellevant analitzar si els pacients amb diferents valors d'IMC presenten patrons de supervivència desiguals després de l'ingrés hospitalari.
+
+Les dades de què disposem inclouen l'IMC mesurat en kg/m\^2, però per facilitar la comparació entre grups i la interpretació dels resultats s'ha dicotomitzat aquesta variable utilitzant el punt de tall de 25 kg/m\^2, àmpliament acceptat com a límit entre normopès i sobrepès. Així, la variable fbmi classifica els pacients en dues categories: IMC baix (inferior a 25) i IMC alt (igual o superior a 25). Aquesta classificació ens permetrà comparar de manera clara la supervivència entre ambdós grups i explorar si l'IMC modifica o interactua amb l'efecte del gènere sobre la mortalitat després d'un infart.
+
+## Breu anàlisi descriptiva segons índex de massa corporal
+
+```{r descriptiva imc,echo=FALSE,message=FALSE,warning=FALSE}
+data$fbmi <- factor(data$fbmi, levels = c(0, 1), labels = c("Baix", "Alt"))
+baix <- data[data$fbmi == "Baix", ]
+alt <- data[data$fbmi == "Alt", ]
+
+resum_imc <- data.frame(
+  ` ` = c("N", "Morts (n)", "Morts (%)", "Mediana seguiment (dies)", "Mitjana seguiment (dies)"),
+  `IMC Baix` = c(
+    nrow(baix),
+    sum(baix$fstat),
+    paste0(round(mean(baix$fstat) * 100, 1), "%"),
+    median(baix$lenfol),
+    round(mean(baix$lenfol), 1)
+  ),
+  `IMC Alt` = c(
+    nrow(alt),
+    sum(alt$fstat),
+    paste0(round(mean(alt$fstat) * 100, 1), "%"),
+    median(alt$lenfol),
+    round(mean(alt$lenfol), 1)
+  ),
+  check.names = FALSE
+)
+kable(resum_imc, caption = "Descriptiva per índex de massa corporal (IMC)")
+```
+
+En aquesta taula podem observar que els pacients amb IMC baix presenten una mortalitat observada del 69.4%, mentre que en el grup d'IMC alt la xifra es redueix al 40.6%, una diferència de gairebé 29 punts percentuals que constitueix la més gran observada entre totes les variables analitzades, la qual cosa suggereix una associació potent entre l'índex de massa corporal i la supervivència després d'un infart.
+
+La mostra presenta un clar desequilibri entre grups, amb 36 pacients d'IMC baix i 64 d'IMC alt, una diferència de gairebé el doble de casos en el grup d'IMC alt que caldrà tenir en compte en la interpretació dels resultats.
+
+Pel que fa al temps de seguiment, sí que s'observen diferències: la mediana de seguiment en el grup d'IMC baix és de 1059.5 dies, gairebé la meitat que en el grup d'IMC alt (1922.5 dies), la qual cosa s'explica perquè els pacients amb IMC baix moren abans i això redueix el seu temps de seguiment, de manera que no es tracta d'un biaix sinó d'una conseqüència directa de la pitjor supervivència d'aquest grup.
+
+De manera coherent, la mitjana de seguiment també és bastant inferior en el grup d'IMC baix (1104.5 dies) que en el grup d'IMC alt (1730.9 dies), reforçant la idea d'una mortalitat més precoç en aquest col·lectiu.
+
+En conjunt, la descriptiva suggereix que els pacients amb IMC baix presenten una mortalitat molt superior i moren molt abans que els pacients amb IMC alt, unes diferències que són les més evidents de tot l'estudi i que apunten a l'IMC com un possible factor pronòstic fonamental en la supervivència després d'un infart agut de miocardi.
+
+## Intervals de confiança per la mediana
+
+```{r IC imc,echo=FALSE,message=FALSE,warning=FALSE}
+add <- Surv(time = data$lenfol, event = as.numeric(as.character(data$fstat)))
+add.imc <- survfit(add ~ data$fbmi, conf.type = "log-log")
+print(add.imc)
+```
+
+Els pacients amb IMC baix presenten una mediana de supervivència de 1060 dies (IC 95%: 274 – 1874), mentre que els d'IMC alt presenten una mediana de 2624 dies (IC 95%: 2065 – NA). Aquesta diferència és molt notable, amb una supervivència més del doble en el grup d'IMC alt.
+
+El més rellevant és que **no hi ha intersecció entre els intervals de confiança**: el límit superior del grup d'IMC baix (1874 dies) és inferior al límit inferior del grup d'IMC alt (2065 dies). Aquesta manca de solapament constitueix una evidència estadística sòlida que les diferències en supervivència entre ambdós grups són reals i no atribuïbles a l'atzar.
+
+## Corbes de supervivència per índex de massa corporal
+
+```{r supervivencia imc,echo=FALSE,message=FALSE,warning=FALSE}
+add.imc <- survfit(Surv(lenfol, fstat) ~ fbmi, data = data)
+
+ggsurvplot(add.imc, data = data, conf.int = TRUE, 
+           xlab = "Temps en dies", ylab = "Supervivència",
+           legend.labs = c("IMC Baix", "IMC Alt"),
+           title = "Funcions de Supervivència per índex de massa corporal")
+```
+
+En aquest gràfic de funcions de supervivència per índex de massa corporal s'observa una separació molt clara entre els dos grups durant tot el període de seguiment, que arriba fins als 3000 dies.
+
+La corba dels pacients amb IMC Baix (línia vermella) descendeix de manera molt més pronunciada que la dels pacients amb IMC Alt, especialment durant els primers 1000 dies, la qual cosa indica una mortalitat precoç elevada en aquest grup. Als 1000 dies, la supervivència del grup d'IMC Baix ja se situa al voltant del 50%, mentre que el grup d'IMC Alt encara manté una supervivència propera al 75%.
+
+Al final del seguiment, la diferència és molt notable: el grup d'IMC Baix presenta una supervivència al voltant del 30%, mentre que el grup d'IMC Alt es manté al voltant del 60%. Aquesta diferència de 30 punts percentuals és coherent amb les dades descriptives prèvies i amb les medianes de supervivència (1060 dies vs 2624 dies).
+
+El gràfic mostra evidència sòlida que els pacients amb IMC Baix tenen pitjor pronòstic després d'un infart que els pacients amb IMC Alt, amb diferències que es mantenen al llarg de tot el seguiment.
+
+També destacar la línia vertical al final de la corba d'IMC Alt, que indica que l'últim pacient o pacients d'aquest grup van ser censurats (no van morir durant l'estudi) i el seu temps de seguiment va ser més llarg que qualsevol esdeveniment observat. Per això el límit superior de l'interval de confiança de la mediana d'IMC Alt és NA (indeterminat), no podem saber quant haurien viscut més enllà del seguiment.
+
+S'ha comprovat aquests resultats també amb l'estimador de Nelson-Aalen, obtenint un gràfic pràcticament idèntic i confirmant la mateixa direcció en els resultats: els pacients amb IMC Alt presenten una supervivència clarament superior als d'IMC Baix.
+
+##Possibles efectes de confusió i interacció amb el gènere
+
+Per analitzar si el gènere pot actuar com a factor de confusió o interactuar amb l'IMC, estratificarem primer per gènere i després per IMC, seguint el mateix procediment que amb l'edat.
+
+###Estratificació per gènere
+
+```{r estrat genere,echo=FALSE,message=FALSE,warning=FALSE}
+imc.homes <- survfit(Surv(lenfol, fstat) ~ fbmi, data = subset(data, gender == "Home"))
+imc.dones <- survfit(Surv(lenfol, fstat) ~ fbmi, data = subset(data, gender == "Dona"))
+
+p_imc_homes <- ggsurvplot(imc.homes, data = subset(data, gender == "Home"),
+                          conf.int = TRUE,
+                          legend.labs = c("IMC Baix", "IMC Alt"),
+                          title = "Homes",
+                          xlab = "Dies", ylab = "Supervivència")
+
+p_imc_dones <- ggsurvplot(imc.dones, data = subset(data, gender == "Dona"),
+                          conf.int = TRUE,
+                          legend.labs = c("IMC Baix", "IMC Alt"),
+                          title = "Dones",
+                          xlab = "Dies", ylab = "Supervivència")
+
+arrange_ggsurvplots(list(p_imc_homes, p_imc_dones),
+                    ncol = 2, nrow = 1)
+```
+
+Quan s'estratifica la mostra per gènere i s'analitza l'efecte de l'IMC dins de cada grup, s'observa que en ambdós casos les corbes de supervivència per IMC Baix i IMC Alt presenten un solapament considerable, especialment en el cas dels homes. Aquesta troballa és rellevant perquè, en l'anàlisi global sense estratificar, els pacients amb IMC Baix presentaven de manera notable una pitjor supervivència que els d'IMC Alt. El fet que aquesta diferència es redueixi en analitzar homes i dones per separat suggereix que **el gènere actuaria com a factor de confusió** en la relació entre IMC i supervivència.
+
+Aquesta confusió s'explica perquè la distribució de l'IMC és desigual entre sexes: proporcionalment hi ha bastants més homes amb IMC Alt que dones, la qual cosa podria estar influint en els resultats globals. A més a més, també observem que les dones amb IMC Baix presenten una davallada molt més abrupta en la supervivència durant els primers 500 dies, un patró que no s'aprecia amb la mateixa intensitat en els homes ni en les dones amb IMC Alt.
+
+###Estratificació per IMC
+
+```{r estrat imc,echo=FALSE,message=FALSE,warning=FALSE}
+gen.imc_baix <- survfit(Surv(lenfol, fstat) ~ gender, data = subset(data, fbmi == "Baix"))
+gen.imc_alt <- survfit(Surv(lenfol, fstat) ~ gender, data = subset(data, fbmi == "Alt"))
+
+p_imcbaix_gen <- ggsurvplot(gen.imc_baix, data = subset(data, fbmi == "Baix"),
+                            conf.int = TRUE,
+                            legend.labs = c("Homes", "Dones"),
+                            title = "IMC Baix",
+                            xlab = "Dies", ylab = "Supervivència")
+
+p_imcalt_gen <- ggsurvplot(gen.imc_alt, data = subset(data, fbmi == "Alt"),
+                          conf.int = TRUE,
+                          legend.labs = c("Homes", "Dones"),
+                          title = "IMC Alt",
+                          xlab = "Dies", ylab = "Supervivència")
+
+arrange_ggsurvplots(list(p_imcbaix_gen, p_imcalt_gen),
+                    ncol = 2, nrow = 1)
+```
+
+Quan s'estratifica per IMC i es comparen homes i dones dins de cada grup, s'observa que en el grup d'IMC Alt les corbes de supervivència d'homes i dones són pràcticament superposades. En el grup d'IMC Baix també hi ha un gran solapament, tot i que s'aprecia una lleugera tendència a pitjor supervivència en les dones. Aquest patró indica que no hi ha evidència d'una interacció important entre gènere i IMC, ja que l'efecte del gènere sobre la supervivència és similar en ambdós grups. Dit d'una altra manera, la relació entre gènere i supervivència no canvia substancialment en funció de si el pacient té IMC Baix o IMC Alt.
+
+## Comparació per contrastos
+
+Per analitzar si existeixen diferències entre les funcions de supervivència dels grups definits per l’índex de massa corporal, es poden utilitzar diversos contrastos estadístics. Tots parteixen de la comparació entre el nombre d’esdeveniments observats i l’esperat sota la hipòtesi que ambdós grups presenten la mateixa supervivència, tot i que no tots donen la mateixa importància a cada moment del seguiment.
+
+En particular, es consideraran tres alternatives:
+
+- **Log-rank**, que valora per igual tots els temps de seguiment.
+- **Peto**, que dona més importància als esdeveniments ocorreguts al principi.
+- **Fleming-Harrington**, que permet ressaltar diferents zones del seguiment segons la ponderació escollida.
+
+La hipòtesi nul·la plantejada és:
+
+\[
+H_0: S_{\text{Baix}}(t) = S_{\text{Alt}}(t)\quad \forall t
+\]
+
+davant l’alternativa que ambdues funcions de supervivència no coincideixin.
+
+### Log-rank
+
+```{r Log Rank, message=FALSE,warning=FALSE, echo=FALSE}
+test.bmi.lr <- survdiff(Surv(lenfol, fstat) ~ fbmi, data = data)
+test.bmi.lr
+```
+
+Aquest contrast avalua si, en conjunt, les corbes de supervivència dels grups amb **IMC baix** i **IMC alt** són comparables. En els resultats obtinguts s’observa un estadístic \(\chi^2 = 11.2\) amb 1 grau de llibertat i un valor-p de \(0.0008\). Atès que aquest valor és inferior a 0.05, es rebutja la hipòtesi nul·la i es conclou que existeixen diferències significatives entre ambdós grups.
+
+### Peto
+
+```{r Peto, message=FALSE,warning=FALSE, echo=FALSE}
+test.bmi.peto <- survdiff(Surv(lenfol, fstat) ~ fbmi, data = data, rho = 1)
+test.bmi.peto
+```
+
+També es va aplicar el contrast de **Peto**, que és una alternativa al log-rank però que dona més pes als esdeveniments que tenen lloc als primers temps del seguiment.
+
+En aquest cas, es va obtenir un estadístic \(\chi^2 = 13.1\) amb 1 grau de llibertat i un valor-p de \(0.0003\). Com que aquest valor-p és menor que 0.05, es rebutja la hipòtesi nul·la d’igualtat entre les funcions de supervivència dels grups amb **IMC baix** i **IMC alt**.
+
+Per tant, aquest contrast també indica que existeixen diferències significatives en la supervivència segons l’índex de massa corporal. A més, com que la prova de Peto dona més importància als temps inicials i el resultat continua sent significatiu, això suggereix que la diferència entre ambdós grups també és present en les primeres etapes del seguiment.
+
+En conjunt, el resultat del contrast de Peto és coherent amb l’obtingut mitjançant el log-rank i reforça la idea que la supervivència difereix entre els pacients amb **IMC baix** i **IMC alt**.
+
+### Fleming-Harrington
+
+```{r Fleming-Harrington, message=FALSE,warning=FALSE, echo=FALSE}
+library(survMisc)
+fit.bmi <- survfit(Surv(lenfol, fstat) ~ fbmi, data = data)
+comp(ten(fit.bmi))
+```
+
+La família de contrastos **Fleming-Harrington** permet utilitzar ponderacions més flexibles, donant més rellevància a diferents zones del seguiment segons els paràmetres escollits. Això resulta útil quan les diferències entre grups no són uniformes al llarg del temps.
+
+En els resultats obtinguts s’observa que diverses versions d’aquest contrast també detecten diferències entre els grups d’**IMC baix** i **IMC alt**. Per exemple, a la sortida apareixen estadístics estandarditzats elevats en valor absolut, com ara \(Z=-3.3502\) per a la ponderació tipus log-rank, \(Z=-3.8023\) per a la ponderació \(n\), \(Z=-3.7370\) per a \(\sqrt{n}\), \(Z=-3.6665\) per a \(S1\), \(Z=-3.6966\) per a \(S2\) i \(Z=-2.5495\) per a l’opció \(FH\; p=1,\; q=1\). En tots els casos, l’evidència apunta en la mateixa direcció: existeixen diferències entre les funcions de supervivència dels grups definits per l’índex de massa corporal.
+
+Per tant, el contrast de Fleming-Harrington reforça la conclusió obtinguda amb el **log-rank** i amb la prova de **Peto**. El fet que diferents ponderacions condueixin a una conclusió semblant suggereix que la diferència entre els grups d’IMC és força estable i no depèn únicament d’una part concreta del seguiment.
+
+## Anàlisi dels tests i quin és més convenient en aquest cas
+
+Per comparar les funcions de supervivència entre els grups d’**IMC baix** i **IMC alt** es van utilitzar el **log-rank**, la prova de **Peto** i la família de contrastos **Fleming-Harrington**. La diferència principal entre ells és el pes que donen als esdeveniments al llarg del seguiment.
+
+El contrast **log-rank** tracta tots els temps del seguiment de manera similar, i per això és adequat quan interessa detectar una diferència global entre les corbes de supervivència. En el nostre cas, el resultat va ser \(\chi^2 = 11.2\) amb 1 grau de llibertat i un valor-p de \(0.0008\). Com que aquest valor-p és menor que 0.05, es rebutja la hipòtesi nul·la d’igualtat entre les funcions de supervivència, cosa que indica que existeixen diferències significatives entre els grups d’IMC.
+
+La prova de **Peto** dona més pes als temps inicials del seguiment. En aquest cas, també va resultar significativa, amb \(\chi^2 = 13.1\) i valor-p de \(0.0003\). Aquest resultat reforça la conclusió anterior i suggereix, a més, que les diferències entre els grups d’IMC també s’observen als primers temps del seguiment.
+
+Per la seva banda, la família de contrastos **Fleming-Harrington** permet utilitzar ponderacions més flexibles per a les nostres dades, i les diferents versions d’aquesta família també van mostrar valors elevats de \(Z\) en valor absolut, apuntant igualment a diferències entre els grups amb **IMC baix** i **IMC alt**. Per tant, aquest enfocament també condueix a la mateixa conclusió general.
+
+En conjunt, els tres mètodes són coherents entre si i mostren evidència de diferències en la supervivència segons l’índex de massa corporal. Tot i així, el contrast que sembla més convenient en aquest cas és el **log-rank**, perquè permet fer una comparació global entre les corbes i, a més, la diferència entre els grups ja s’observava de manera bastant general en l’anàlisi gràfica prèvia, sense que semblés concentrar-se únicament en una part concreta del seguiment. La prova de **Peto**, així com la família **Fleming-Harrington**, serveixen com a proves complementàries i reforcen l’argument.
+
+## Coherència entre els contrastos i els resultats de l’estimació de la funció de supervivència
+
+Sí que existeix coherència entre els contrastos aplicats i els resultats obtinguts en l’estimació i representació de la funció de supervivència. En la representació gràfica de les funcions de supervivència per índex de massa corporal s’observava que els pacients amb **IMC baix** presentaven una pitjor supervivència que els pacients amb **IMC alt**. Aquesta diferència visual queda recolzada pels contrastos estadístics realitzats.
+
+En particular, el contrast **log-rank** va donar un valor de \(\chi^2 = 11.2\) amb valor-p \(= 0.0008\), mentre que la prova de **Peto** va donar \(\chi^2 = 13.1\) amb valor-p \(= 0.0003\). A més, la família de contrastos **Fleming-Harrington** també va apuntar a diferències entre ambdós grups.
+
+Per tant, tant l’evidència gràfica com l’evidència numèrica condueixen a la mateixa conclusió: la supervivència difereix segons l’índex de massa corporal, i és pitjor en el grup amb **IMC baix**.
+
+## Alternatives de comprovació de possibles efectes de confusió i interacció entre gènere i IMC
+
+Per estudiar possibles efectes de **confusió** i **interacció** entre el gènere i l’índex de massa corporal, una alternativa adequada dins de les tècniques vistes a classe és treballar mitjançant **estratificació**. Una primera opció consisteix a representar les corbes de supervivència per a les combinacions d’ambdues variables, és a dir, per als grups **Home-Baix**, **Dona-Baix**, **Home-Alt** i **Dona-Alt**. Aquesta representació permet valorar visualment si la diferència entre **IMC baix** i **IMC alt** es manté de manera semblant en homes i dones. Si dins de cada gènere el grup amb IMC alt continua mostrant una millor supervivència que el grup amb IMC baix, això suggereix que l’associació entre IMC i supervivència es manté en considerar el gènere. En canvi, si el patró canvia molt entre homes i dones, es podria sospitar una possible interacció.
+
+```{r}
+test.bmi.strat.gender <- survdiff(Surv(lenfol, fstat) ~ fbmi + strata(gender), data = data)
+test.bmi.strat.gender
+```
+
+Una segona opció és aplicar un contrast estratificat per gènere, que permet comparar els grups d’IMC controlant l’efecte del gènere. En aquest cas, el contrast estratificat va donar un estadístic \(\chi^2 = 12.5\) amb 1 grau de llibertat i un valor-p de \(0.0004\). Com que aquest resultat és molt semblant a l’obtingut sense estratificar \((\chi^2 = 11.2,\; p = 0.0008)\), s’observa que la diferència entre els grups d’IMC es manté fins i tot en tenir en compte el gènere.
+
+Això suggereix que el gènere no està explicant per si sol la relació entre índex de massa corporal i supervivència, de manera que no sembla haver-hi un efecte de confusió important. Quant a la interacció, les corbes estratificades poden servir com a eina exploratòria per detectar-la, però amb aquestes tècniques no es pot comprovar de manera tan directa com amb models més avançats. Tot i així, si el patró entre **IMC baix** i **IMC alt** és relativament semblant en ambdós gèneres, no hi hauria indicis clars d’una interacció forta.
+
+## Afectació de les hipòtesis dels contrastes als resultats obtinguts
+
+La interpretació dels contrastos aplicats depèn de diverses hipòtesis. La més important és que la **censura sigui no informativa**, és a dir, que els pacients censurats no tinguin un risc de morir sistemàticament diferent del dels pacients que continuen en seguiment. Si aquesta condició no es complís, tant les corbes de supervivència com els contrastos podrien estar esbiaixats i no ajustar-se al que realment succeeix.
+
+Addicionalment, cal tenir en compte que els diferents contrastos no ponderen igual els temps del seguiment. Per exemple, el **log-rank** tracta tots els temps de manera semblant, mentre que el contrast de **Peto** dona més pes als temps inicials i la família de **Fleming-Harrington** permet donar més importància a diferents zones del seguiment segons la ponderació escollida. Per això, si les diferències entre els grups canviessin molt al llarg del temps, els resultats podrien variar segons el contrast utilitzat.
+
+En el nostre cas, els tres enfocaments considerats van conduir a una mateixa conclusió. El contrast **log-rank** va donar un valor-p de \(0.0008\), la prova de **Peto** un valor-p de \(0.0003\), i la família **Fleming-Harrington** també va apuntar a diferències entre els grups amb **IMC baix** i **IMC alt**, cosa que reforça la idea que la diferència observada en supervivència és consistent i no depèn només d’una forma particular de ponderar els esdeveniments.
+
+Així, sota les hipòtesis habituals d’aquests contrastes, els resultats obtinguts donen suport al fet que la supervivència difereix segons l’índex de massa corporal. En concret, els pacients amb **IMC baix** presenten una evolució menys favorable que els pacients amb **IMC alt**.
+
+## Efectes de confusió i interacció
+
+Per estudiar un possible efecte de **confusió**, es pot comparar l'efecte de l'IMC sobre la supervivència abans i després d'ajustar per gènere mitjançant un model de Cox. En el model ajustat `S ~ gender + fbmi`, l'IMC va continuar sent estadísticament significatiu, amb un hazard ratio de $0.392$ per al grup amb IMC alt i un p-valor de $0.00099$. Això indica que, fins i tot tenint en compte el gènere, l'índex de massa corporal continua estant associat amb la supervivència. Per tant, el gènere no sembla explicar per sí sol la relació observada entre IMC i supervivència.
+
+Per estudiar una possible **interacció**, s'ha ajustat un model de Cox amb el terme `gender * fbmi`. En aquest model, el terme d'interacció `genderDona:fbmiAlt` va presentar un valor-p de $0.5399$. A més a més, al comparar el model amb interacció amb el model sense interacció, es s'ha obtingut un pvalor de $0.5393$. Com que ambdós valors són més grans que 0.05, no hi ha evidència estadísticament significativa d'interacció entre gènere i IMC.
+
+En conseqüència, amb aquestes dades no sembla que l'efecte de l'índex de massa corporal sobre la supervivència canviï segons el gènere.
+
+### Efecte de les hipòtesis
+
+Aquests resultats depenen de diverses hipòtesis. La principal és que la **censura sigui no informativa**, és a dir, que els pacients censurats no tinguin un risc de morir molt diferent al dels pacients que van continuar en seguiment. Si aquesta condició no es compleix, tant les corbes estimades com els contrastos podrien no reflectir bé la realitat. A més, el **contrast log-rank** i el **model de Cox** s'interpreten millor quan les diferències entre els grups es mantenen de manera relativament estable al llarg del temps. Si les corbes de supervivència es creuessin molt, la comparació entre grups seria més difícil de resumir amb un sol contrast o amb un únic hazard ratio.
+
+Sota aquestes hipòtesis, els resultats obtinguts recolzen que *l'índex de massa corporal sí que està relacionat amb la supervivència*. Això s'observa en el contrast log-rank, on es va obtenir $\chi^2 = 11.2$ amb p-valor $= 0.0008$, per la qual cosa es rebutja la hipòtesi nul·la d'igualtat entre les funcions de supervivència dels grups d'IMC.
+
+A més a més, el model de Cox ajustat per gènere mostra que el grup amb IMC alt té un hazard ratio de $0.3922$ respecte al grup amb IMC baix, amb p-valor $= 0.00099$ i interval de confiança del 95% $(0.2247,; 0.6846)$. Com que aquest hazard ratio és menor que 1, es conclou que els pacients amb IMC alt presenten un risc menor de morir que els pacients amb IMC baix.
+
+D'altra banda, no s'ha trobat evidència d'una interacció important entre gènere i IMC. En el model amb interacció, el terme `genderDona:fbmiAlt` va presentar un p-valor de $0.5399$, i a més la comparació entre el model amb interacció i el model sense interacció va donar un p-valor de $0.5393$. Per tant, no hi ha evidència estadísticament significativa que l'efecte de l'IMC sobre la supervivència canviï segons el gènere.
