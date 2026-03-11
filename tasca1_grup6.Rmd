@@ -787,7 +787,7 @@ Per estudiar una possible **interacció**, s'ha ajustat un model de Cox amb el t
 En conseqüència, amb aquestes dades no sembla que l'efecte de l'índex de massa corporal sobre la supervivència canviï segons el gènere.
 
 
-Aquests resultats depenen de diverses hipòtesis. La principal és que la **censura sigui no informativa**, és a dir, que els pacients censurats no tinguin un risc de morir molt diferent al dels pacients que van continuar en seguiment. Si aquesta condició no es compleix, tant les corbes estimades com els contrastos podrien no reflectir bé la realitat. A més, el **contrast log-rank** i el **model de Cox** s'interpreten millor quan les diferències entre els grups es mantenen de manera relativament estable al llarg del temps. Si les corbes de supervivència es creuessin molt, la comparació entre grups seria més difícil de resumir amb un sol contrast o amb un únic hazard ratio.
+Aquests resultats depenen de diverses hipòtesis. La principal és que la **censura sigui no informativa**, és a dir, que els pacients censurats no tinguin un risc de morir molt diferent al dels pacients que van continuar en seguiment. Si aquesta condició no es compleix, tant les corbes estimades com els contrastos podrien no reflectir bé la realitat. 
 
 Sota aquestes hipòtesis, els resultats obtinguts recolzen que *l'índex de massa corporal sí que està relacionat amb la supervivència*. Això s'observa en el contrast log-rank, on es va obtenir $\chi^2 = 11.2$ amb p-valor $= 0.0008$, per la qual cosa es rebutja la hipòtesi nul·la d'igualtat entre les funcions de supervivència dels grups d'IMC.
 
