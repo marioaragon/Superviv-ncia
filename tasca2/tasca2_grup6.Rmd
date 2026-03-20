@@ -752,7 +752,7 @@ El gràfic mostra que el model final de Weibull només s'ajusta adequadament per
 
 Observem els gràfics per separat:
 
-```{r}
+```{r, echo=FALSE}
 par(mfrow = c(1, 2))
 
 # Home <70 vs Dona <70
