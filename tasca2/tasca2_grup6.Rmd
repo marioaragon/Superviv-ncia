@@ -598,6 +598,7 @@ El test de versemblança entre el model amb només gender i el model que incorpo
 extractAIC(m.weib)
 extractAIC(m.weib.age)
 ```
+
 L'AIC del model amb gender i fage (904.58) és inferior al del model amb només gender (912.34), confirmant que la inclusió de l'edat millora l'ajust del model penalitzant per complexitat. Aquest resultat és coherent amb el test de versemblança i reforça la decisió d'incloure fage com a covariable.
 
 
