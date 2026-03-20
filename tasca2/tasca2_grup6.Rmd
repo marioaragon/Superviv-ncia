@@ -369,8 +369,6 @@ days0.loglog <- predict(m.loglog, newdata = pattern0, type = "quantile", p = pct
 days1.loglog <- predict(m.loglog, newdata = pattern1, type = "quantile", p = pct2)
 
 
-par(mfrow = c(2, 2))
-
 #Plot 1: Exponencial 
 plot(km.gender, xlab = "Temps en dies", ylab = "Supervivència",
      lty = c(1, 3), col = c("blue", "red"),
@@ -384,28 +382,25 @@ legend("topright",
 
 # Plot 2: Weibull 
 plot(km.gender, xlab = "Temps en dies", ylab = "Supervivència",
-     lty = c(1, 3), col = c("blue", "red"),
+     lty = c(1, 3), col = c("purple", "green"),
      main = "Weibull vs KM")
-points(days0.weib, survival, pch = 21, col = "blue")
-points(days1.weib, survival, pch = 16, col = "red")
+points(days0.weib, survival, pch = 21, col = "purple")
+points(days1.weib, survival, pch = 16, col = "green")
 legend("topright",
        c("KM Home", "KM Dona", "Weibull Home", "Weibull Dona"),
        lty = c(1, 3, NA, NA), pch = c(NA, NA, 21, 16),
-       col = c("blue", "red", "blue", "red"), cex = 0.8)
+       col = c("purple", "green", "purple", "green"), cex = 0.8)
 
 # Plot 3: Log-logístic
 plot(km.gender, xlab = "Temps en dies", ylab = "Supervivència",
-     lty = c(1, 3), col = c("blue", "red"),
+     lty = c(1, 3), col = c("skyblue", "orange"),
      main = "Log-logístic vs KM")
-points(days0.loglog, survival, pch = 21, col = "blue")
-points(days1.loglog, survival, pch = 16, col = "red")
+points(days0.loglog, survival, pch = 21, col = "skyblue")
+points(days1.loglog, survival, pch = 16, col = "orange")
 legend("topright",
        c("KM Home", "KM Dona", "Log-log. Home", "Log-log. Dona"),
        lty = c(1, 3, NA, NA), pch = c(NA, NA, 21, 16),
-       col = c("blue", "red", "blue", "red"), cex = 0.8)
-
-# Restaurar disposició original
-par(mfrow = c(1, 1))
+       col = c("skyblue", "orange", "skyblue", "orange"), cex = 0.8)
 ```
 
 El gràfic mostra que el model Weibull s’ajusta força bé a les corbes de Kaplan-Meier per a tots dos grups, ja que segueix bastant de prop la tendència observada de la supervivència. A més, s’observa clarament que els homes presenten una supervivència més alta que les dones al llarg del temps, fet coherent amb el coeficient negatiu de la variable gender en el model.
@@ -462,26 +457,71 @@ El **model Weibull** és el més adequat pels motius següents:
 
 # Interpretació model
 
-El millor model en el nostre cas es el de weibull: 
+Després d'escollir la distribució com la weibull, estudiarem diferents aspectes del model:
+
+## Paràmetre escala
+
+Per modelitzar el temps fins a l'esdeveniment s'ha ajustat un model amb la distribució de Weibull com hem comentat anteriorment. Aquest model permet estimar el paràmetre d'escala p, que caracteritza la forma de la funció de risc i determina si aquest és creixent, decreixent o constant al llarg del temps.
 
 ```{r}
-# Paràmetre d'escala (1/p)
 cat("Escala (1/p):", m.weib$scale, "\n")
 cat("p =", 1 / m.weib$scale, "\n")
- 
-# Factor d'acceleració (AFT)
+```
+
+Segons el resultat del valor d'escala, una estimació del paràmetre obtinguda és $\frac{1}{p}$ = 1.3544, la qual cosa correspon a un valor de p = 0.7383. Com que p < 1, això indica que la funció de risc és decreixent amb el temps, implicant que la probabilitat de que es produeixi la mort després d'un atac de cor agut és més alta a l'inici del seguiment i disminueix progressivament a mesura que avança el temps. 
+
+## Factor d'acceleració (AFT)
+
+El factor d’acceleració (AF) descriu l'estirament o la contracció de les funcions de supervivència quan es compara un grup amb un altre. Així doncs quantifica en quina mesura el temps fins a l'esdeveniment es estirat segons els sexe dels individus, dones respecte a homes.
+
+```{r}
+
 FA.gender <- exp(m.weib$coef[2])
 IC.FA <- c(exp(m.weib$coef[2] - 1.96 * sqrt(m.weib$var[2, 2])),
            exp(m.weib$coef[2] + 1.96 * sqrt(m.weib$var[2, 2])))
 cat("\nFactor d'Acceleració (FA) Dona vs Home:\n")
 cat("FA =", FA.gender, "\n")
 cat("IC 95%: [", IC.FA[1], ",", IC.FA[2], "]\n")
- 
-# Hazard Ratio (PH) per Weibull: HR = (1/FA)^p = exp(-alpha1/scale)
+```
+Pel que fa al grup de les dones respcte als homes, els seu factor d'acceleració és de $\gamma = 0.454$ (IC 95%: [0.211, 0.977]). Com que s'ha obtingut un valor de $\gamma$ inferior a 1 indica que el temps fins a l'esdeveniment és més curt en les dones tenint una supervivencia inferior. Concretament, el temps esperat en dones és aproximadament un 54.6% inferior al dels homes. Atès que l'interval de confiança no inclou l'1, aquesta diferència és estadísticament significativa al nivell del 5%.
+
+## Hazard Ratio (PH) per Weibull
+
+La relació entre el *hazard ratio* (HR) i el factor d'acceleració (AF) en el model de Weibull és:
+
+$$
+HR = \left(\frac{1}{AF}\right)^p = \exp\left(-\frac{\alpha_1}{\text{scale}}\right)
+$$
+
+on \(p\) és el paràmetre de forma del model.
+
+L'assumpció subjacent és que l'efecte de les covariables és **multiplicatiu (proporcional)** respecte de la funció de risc:
+
+$$
+h(t \mid X) = h_0(t)\cdot \exp(\beta'X) = h_0(t)\cdot \theta, \quad \forall t \geq 0
+$$
+
+on:
+
+- \(\beta' = (\beta_1, \ldots, \beta_p)\): coeficients de regressió,
+- \(h_0(t) = h(t \mid X = 0)\): funció de risc basal,
+- \(\theta\): *hazard ratio*.
+
+El *hazard ratio* mesura el canvi d'escala en la funció de risc causat per les covariables.
+
+Igual que el factor d'acceleració, el *hazard ratio* és constant al llarg del temps.
+
+```{r}
 HR.gender <- exp(-m.weib$coef[2] / m.weib$scale)
 cat("\nHazard Ratio (HR) Dona vs Home:\n")
 cat("HR =", HR.gender, "\n")
- 
+```
+
+El Hazard Ratio obtingut per a dones respecte a homes és de $\theta = 1.792$, la qual cosa indica que les dones presenten un risc d'experimentar l'esdeveniment aproximadament un 79.2% superior al dels homes durant tot el seguiment del estudi. Ixí doncs, el resulat és consistent amb el $\gamma < 1$ obtingut anteriorment, concluint que les dones arriben a l'esdeveniment de forma més ràpida.
+
+Per tal de quantificar les diferències entre grups de manera més interpretable, s'han estimat els percentils (25, 50, 75) del temps de supervivència per a homes i dones per separat.
+
+```{r}
 # Medianes per cada grup
 pct <- c(0.25, 0.50, 0.75)
 medianes <- cbind(pct,
@@ -490,8 +530,20 @@ medianes <- cbind(pct,
 colnames(medianes) <- c("Percentil", "Home", "Dona")
 cat("\nPercentils del temps de supervivència:\n")
 print(medianes)
- 
-# Coherència amb test log-rank (Tasca 1)
+```
+
+El temps medià de supervivència és de 2885 dies en homes i de 1309 dies en dones, el que representa que les dones assoleixen la meitat dels esdeveniments gairebé en la meitat del temps que els homes com hem observat anteriorment en el s apartats anteriors a aquest.
+
+La tendència es manté de forma consistent als percentils 25 i 75, on les diferències entre grups són igualment notables, reforçant la conclusió que el gènere és un factor pronòstic rellevant en aquest model.
+
+
+
+## Relacions & Coherències
+
+Per validar els resultats obtinguts amb el model de Weibull, es compara amb el test log-rank no paramètric, i amb el test de raó de versemblança (LRT) derivat del propi model.
+
+```{r} 
+# Coherència amb test log-rank 
 test.logrank <- survdiff(surv.whas ~ gender, data = data)
 test.logrank
  
@@ -499,6 +551,10 @@ test.logrank
 (chisq.lrt <- -2 * (m.weib$loglik[1] - m.weib$loglik[2]))
 1 - pchisq(chisq.lrt, df = 1)
 ```
+
+El test log-rank proporciona un estadístic de $\chi^2 = 4$ (p = 0.046), mentre que el LRT del model de Weibull dona un valor de $\chi^2 = 4.159$ (p = 0.041). Tots dos tests apunten en la mateixa direcció: existeix una diferència estadísticament significativa entre homes i dones en el temps fins a l'esdeveniment, al nivell de significació del 5%.
+
+La coherència entre ambdós resultats reforça la robustesa de les conclusions obtingudes: el gènere és una covariable amb un efecte significatiu sobre la supervivència. 
 
 # Anàlisis amb variables 
 
