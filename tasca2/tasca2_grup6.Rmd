@@ -58,29 +58,29 @@ En concret, es pretén determinar si homes i dones presenten la mateixa funció 
 
 # Models Paramètrics 
 
-D’entre els diferents models paramètrics estudiats, s’avaluaran aquells que puguin ajustar-se millor a les dades per tal d’identificar quin és el més adequat. Escollir el model més apropiat permetrà realitzar una anàlisi més exhaustiva amb la resta de variables de la base de dades i reduir el risc d’interpretar de manera incorrecta les relacions observades.
+D’entre els diferents models paramètrics estudiats, s’avaluaran aquells que puguin ajustar-se millor a les dades per tal d’identificar quin és el més adequat. Escollir el model més apropiat permetrà realitzar una anàlisi més exhaustiva amb la resta de variables de la base de dades i reduir el risc d’interpretar de manera incorrecta les relacions observades. Els mdels a estudiar són:
 
-**Model exponencial**
+**Model Exponencial**
 
 \[
-h(t) = \lambda = \exp(\beta_0 + \beta_1 \,\mathrm{TRT})
+h(t) = \lambda = \exp(\beta_0 + \beta_1 \,\mathrm{gender})
 \]
 
 \[
-\mathrm{TRT} = 1:\quad h(t) = \exp(\beta_0 + \beta_1)
+\mathrm{gender} = 1:\quad h(t) = \exp(\beta_0 + \beta_1)
 \]
 
 \[
-\mathrm{TRT} = 0:\quad h(t) = \exp(\beta_0)
+\mathrm{gender} = 0:\quad h(t) = \exp(\beta_0)
 \]
 
 \[
-\mathrm{HR}(\mathrm{TRT}=1 \text{ vs. } \mathrm{TRT}=0)
+\mathrm{HR}(\mathrm{gender}=1 \text{ vs. } \mathrm{gender}=0)
 = \frac{\exp(\beta_0 + \beta_1)}{\exp(\beta_0)}
 = \exp(\beta_1)
 \]
 
-**model de weibull**
+**Model de Weibull**
 
 \[
 S(t) = \exp(-\lambda t^p)
@@ -89,20 +89,20 @@ t = \left[-\ln(S(t))\right]^{1/p} \times \frac{1}{\lambda^{1/p}}
 \]
 
 \[
-\text{Let } \frac{1}{\lambda^{1/p}} = \exp(\alpha_0 + \alpha_1 \mathrm{TRT}),
+\text{Let } \frac{1}{\lambda^{1/p}} = \exp(\alpha_0 + \alpha_1 \mathrm{gender}),
 \]
 
 \[
-t = \left[-\ln(S(t))\right]^{1/p} \times \exp(\alpha_0 + \alpha_1 \mathrm{TRT})
+t = \left[-\ln(S(t))\right]^{1/p} \times \exp(\alpha_0 + \alpha_1 \mathrm{gender})
 \]
 
 \[
 \text{Let } S(t)=q,\quad
-t = \left[-\ln(q)\right]^{1/p} \times \exp(\alpha_0 + \alpha_1 \mathrm{TRT})
+t = \left[-\ln(q)\right]^{1/p} \times \exp(\alpha_0 + \alpha_1 \mathrm{gender})
 \]
 
 \[
-\text{Acceleration Factor: } \gamma \; (\mathrm{TRT}=1 \text{ vs. } \mathrm{TRT}=0)
+\text{Acceleration Factor: } \gamma \; (\mathrm{gender}=1 \text{ vs. } \mathrm{gender}=0)
 \]
 
 \[
@@ -112,7 +112,7 @@ t = \left[-\ln(q)\right]^{1/p} \times \exp(\alpha_0 + \alpha_1 \mathrm{TRT})
 = \exp(\alpha_1)
 \]
 
-**model de log-logistic**
+**Model Log-logistic**
 
 $$
 S(t)=\frac{1}{1+\lambda t^p}
@@ -124,50 +124,44 @@ t=\left[\frac{1}{S(t)}-1\right]^{1/p}\cdot \frac{1}{\lambda^{1/p}}
 $$
 
 $$
-\text{Let } \frac{1}{\lambda^{1/p}}=\exp(\alpha_0+\alpha_1\,\text{WBCCAT})
+\text{Let } \frac{1}{\lambda^{1/p}}=\exp(\alpha_0+\alpha_1\,\text{gender})
 $$
 
 $$
-t=\left[\frac{1}{S(t)}-1\right]^{1/p}\cdot \exp(\alpha_0+\alpha_1\,\text{WBCCAT})
+t=\left[\frac{1}{S(t)}-1\right]^{1/p}\cdot \exp(\alpha_0+\alpha_1\,\text{gender})
 $$
 
 $$
 \text{Let } S(t)=q,\quad
-t=\left[q^{-1}-1\right]^{1/p}\cdot \exp(\alpha_0+\alpha_1\,\text{WBCCAT})
+t=\left[q^{-1}-1\right]^{1/p}\cdot \exp(\alpha_0+\alpha_1\,\text{gender})
 $$
 
 $$
-\text{Acceleration Factor: } \gamma \; (\text{WBCCAT}=2 \text{ vs. } \text{WBCCAT}=1)
+\text{Acceleration Factor:}
 $$
 
-$$
-\gamma=
-\frac{\left[q^{-1}-1\right]^{1/p}\exp(\alpha_0+2\alpha_1)}
-{\left[q^{-1}-1\right]^{1/p}\exp(\alpha_0+\alpha_1)}
-=\exp(\alpha_1)
-$$
+
 
 $$
 \begin{aligned}
-\text{AFT: } \lambda^{1/p} &= \exp[-(\alpha_0 + \alpha_1 \text{TRT})] \\
-(1/p)\ln \lambda &= -(\alpha_0 + \alpha_1 \text{TRT}) \\
-\ln \lambda &= -p\,(\alpha_0 + \alpha_1 \text{TRT})
+\text{AFT: } \lambda^{1/p} &= \exp[-(\alpha_0 + \alpha_1 \text{gender})] \\
+(1/p)\ln \lambda &= -(\alpha_0 + \alpha_1 \text{gender}) \\
+\ln \lambda &= -p\,(\alpha_0 + \alpha_1 \text{gender})
 \end{aligned}
 $$
 
 $$
 \begin{aligned}
-\text{PO: } \lambda &= \exp(\beta_0 + \beta_1 \text{TRT}) \\
-\ln \lambda &= \beta_0 + \beta_1 \text{TRT}
+\text{PO: } \lambda &= \exp(\beta_0 + \beta_1 \text{gender}) \\
+\ln \lambda &= \beta_0 + \beta_1 \text{gender}
 \end{aligned}
 $$
 
 $$
 \beta_1 = -\alpha_1 \cdot p \;=\; \textit{FOR} = \left(\frac{1}{\gamma}\right)^p
 $$
-Abans de comenzar a comprabar mitjançant diferentes eines sobre l'ajustament de les dades: 
 
-```{r}
+```{r, include=FALSE}
 surv.whas <- with(data, Surv(lenfol, fstat))
 km.gender <- survfit(surv.whas ~ gender, data = data)
 km.gender
@@ -209,7 +203,7 @@ plot(log(km.gender$time),log(-log(km.gender$surv)))
 
 S'observa, però, que les dues corbes comencen molt properes i es van separant progressivament a mesura que avança el temps, amb la corba de la Dona per sobre implicant un risc acumulat major als dels homes, la qual cosa suggereix una **possible violació del supòsit de proporcionalitat**, o almenys que l'efecte del gènere no és constant en el temps. 
 
-Pel que fa al segón gràfic que indica el mateix però amb punts, si les dades seguissin una distribució de Weibull, **els punts haurien de disposar-se al voltant d'una línia recta**; en canvi, s'aprecia una corba amb forma no del tot lineal, especialment als extrems, cosa que qüestiona l'ajust d'un model paramètric de Weibull pur. Considerant que les rectes no semblen ser paraleles, tenint en complte la probabilitat de l'incompliment de la proporció AFT i PH, no obstant, la millor distribució seria per ara la Weibull on amb eines gràfiques no queda tot clar.  
+Pel que fa al segón gràfic que indica el mateix però amb punts, si les dades seguissin una distribució de Weibull, els punts haurien de disposar-se al voltant d'una línia recta; en canvi, s'aprecia una corba amb forma no del tot lineal, especialment als extrems, cosa que qüestiona l'ajust d'un model paramètric de Weibull. Considerant que les rectes no semblen ser paraleles, tenint en compte la probabilitat de l'incompliment de la proporció AFT i PH. No obstant això, la millor distribució seria per ara la de Weibull però amb les eines gràfiques no queda del tot clar.  
 
 ```{r}
 # Índexs de cada grup
