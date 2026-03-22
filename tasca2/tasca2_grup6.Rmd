@@ -161,7 +161,7 @@ $$
 \beta_1 = -\alpha_1 \cdot p \;=\; \textit{FOR} = \left(\frac{1}{\gamma}\right)^p
 $$
 
-```{r, include=FALSE}
+```{r, include=FALSE,echo=FALSE}
 surv.whas <- with(data, Surv(lenfol, fstat))
 km.gender <- survfit(surv.whas ~ gender, data = data)
 km.gender
@@ -203,7 +203,9 @@ plot(log(km.gender$time),log(-log(km.gender$surv)))
 
 S'observa, però, que les dues corbes comencen molt properes i es van separant progressivament a mesura que avança el temps, amb la corba de la Dona per sobre implicant un risc acumulat major als dels homes, la qual cosa suggereix una **possible violació del supòsit de proporcionalitat**, o almenys que l'efecte del gènere no és constant en el temps. 
 
-Pel que fa al segón gràfic que indica el mateix però amb punts, si les dades seguissin una distribució de Weibull, els punts haurien de disposar-se al voltant d'una línia recta; en canvi, s'aprecia una corba amb forma no del tot lineal, especialment als extrems, cosa que qüestiona l'ajust d'un model paramètric de Weibull. Considerant que les rectes no semblen ser paraleles, tenint en compte la probabilitat de l'incompliment de la proporció AFT i PH. No obstant això, la millor distribució seria per ara la de Weibull però amb les eines gràfiques no queda del tot clar.  
+Pel que fa al segon gràfic, que representa la mateixa informació però amb punts, si les dades seguissin una distribució de Weibull, aquests haurien de disposar-se al voltant d’una línia recta. Tanmateix, s’observa una certa curvatura, especialment als extrems, fet que posa en dubte l’ajust d’un model paramètric de Weibull. A més, les rectes no semblen ser paral·leles, cosa que podria indicar un possible incompliment de les hipòtesis dels models AFT i PH. No obstant això, i segons l’evidència disponible, la distribució de Weibull continua sent, per ara, la millor candidata, tot i que les eines gràfiques no permeten confirmar-ho de manera concloent.
+
+Per comprovar si es compleix la hipòtesi de riscos proporcionals entre homes i dones, ajustem per separat una recta sobre la transformació de Supervivència. Si les pendents de les dues rectes són semblants, això dona suport a que els riscos siguin proporcionals.
 
 ```{r}
 # Índexs de cada grup
@@ -230,27 +232,23 @@ summary(lm(log(-log(surv_dones[valid_dones])) ~
 ```
 
 Els $R^2$ de tots dos grups són molt elevats, indicant que la relació entre $\ln(-\ln S(t))$ i $\ln(t)$ és clarament lineal, cosa que no s'apreciaba correctament gràficament. 
-Per tant, la distribució Weibull s'ajusta bé a les dades dels dos grups. Entre exponencial i Weibull, la distribució de Weibull sembla ser més justa. 
+
+Per tant, la distribució Weibull s'ajusta bé a les dades dels dos grups. Entre exponencial i Weibull, la distribució de Weibull sembla ser la més ajustada. 
 
 | Grup  | Pendent ($p$) |  $R^2$ |
 |-------|--------------|-------|
 | Homes | 0.595        | 0.942 |
 | Dones | 0.659        | 0.964 |
 
-Als tenir dos pendents clarament inferiors a 1, implica que 
+Al ser les dues pendents clarament inferiors a 1, implica que 
 **la distribució Weibull és preferible a l'Exponencial**, que requeriria 
 $p = 1$.
 
-A més, els dos pendents són similars entre si, cosa que 
-suggereix que els dos grups comparteixen el mateix paràmetre $p$. Això 
-implica que  es pot assumir la hipòtesi de riscos proporcionals, el hazard ratio entre homes i dones és constant al llarg 
-del temps.
+A més, els dos pendents són similars entre si, cosa que suggereix que els dos grups comparteixen el mateix paràmetre $p$. Això implica que  es pot assumir la hipòtesi de riscos proporcionals, el hazard ratio entre homes i dones és constant al llarg del temps.
 
-En resum, les dades s'ajusten a un **model Weibull** amb riscos proporcionals, 
-que és alhora un model AFT i PH, la qual cosa facilita la interpretació 
-tant en termes de factors d'acceleració com de hazard ratios.
+En resum, les dades s'ajusten a un **model Weibull** amb riscos proporcionals, que és alhora un model AFT i PH, la qual cosa facilita la interpretació tant en termes de factors d'acceleració com de hazard ratios.
 
-Després de poder comparar les distribucions de Weibull i Exponencial tenim en compte la possibilitat de la log-logistic, una de les més complexes. Igual que en el cas de la distribució de Weibull, aquesta també podem veure una relació lineal amb els logaritmes.
+Després de comparar les distribucions Weibull i Exponencial, estudiem l’ajust de la distribució log-logística, una de les més complexes, a les dades. Igual que en el cas de la distribució Weibull, també es pot observar una relació lineal entre els logaritmes.
 
 ```{r}
 plot(log(km.gender$time),
@@ -260,23 +258,17 @@ plot(log(km.gender$time),
 title("Corbes log(SO) per Gènere")
 ```
 
-El gràfic del logaritme dels odds de supervivència versus $\ln(t)$ mostra dues bandes clarament separades, corresponents als dos grups de gènere. Tot i que s'observa una tendència 
-descendent aproximadament lineal, les dues bandes no són perfectament 
-paral·leles i presenten certa curvatura als extrems. Això suggereix que 
-la distribució log-logística pot no ser la millor opció comparant amb la Weibull i que la 
-hipòtesi d'odds proporcionals no es compleix de manera clara.
+El gràfic del logaritme dels odds de supervivència versus $\ln(t)$ mostra dues bandes clarament separades, corresponents als dos grups de gènere. Tot i que s'observa una tendència descendent aproximadament lineal, les dues bandes no són perfectament paral·leles i presenten certa curvatura als extrems. Això suggereix que la distribució log-logística pot no ser la millor opció comparant amb la Weibull i que la hipòtesi d'odds proporcionals no es compleix de manera clara.
 
-En conjunt, amb eines gràfiques sembla que la millor distribució és Weibull, més 
-adequat per a aquestes dades, mentre que el model log-logístic presenta 
-un ajust menys satisfactori.
+En conjunt, amb eines gràfiques sembla que la millor distribució és Weibull, més adequat per a aquestes dades, mentre que el model log-logístic presenta un ajust menys satisfactori.
 
 ## Models 
 
-A continuació, s'ajusten diferents models segons les tres distribucions possibles per a la variable gènere, amb l'objectiu de determinar amb precisió quina s'adapta millor a les dades. Per fer-ho, s'empren dos criteris de selecció: el p-valor i el criteri d'informació d'Akaike (AIC), on un valor menor d'aquest últim indica un millor ajust del model.
+A continuació, s'ajusten els diferents models segons les tres distribucions possibles per a la variable gènere, amb l'objectiu de determinar amb precisió quina s'adapta millor a les dades. Per fer-ho, s'empren dos criteris de selecció: el **p-valor i el criteri d'informació d'Akaike (AIC)**, on un valor menor d'aquest últim indica un millor ajust del model.
 
 ### Exponencial 
 
-El **model exponencial** assumeix una **taxa de risc constant** (p = 1) i **riscos proporcionals** entre grups.
+El model exponencial assumeix una **taxa de risc constant** (p = 1) i **riscos proporcionals** entre grups.
 
 ```{r}
 m.exp <- survreg(surv.whas ~ gender, dist = "exponential", data = data)
@@ -288,7 +280,7 @@ En el model de supervivència paramètric exponencial, la variable **gènere** t
 
 ### Weibull
 
-El model de **Weibull** generalitza l'exponencial permetent una **taxa de risc monòtona creixent o decreixent** segons el valor del paràmetre de forma p.
+El model de Weibull generalitza l'exponencial permetent una **taxa de risc monòtona creixent o decreixent** segons el valor del **paràmetre de forma p.**
 
 ```{r}
 m.weib <- survreg(surv.whas ~ gender, dist = "weibull", data = data)
@@ -296,7 +288,7 @@ summary(m.weib)
 extractAIC(m.weib)
 ```
 
-En el model de supervivència paramètric Weibull, la variable **gènere** també té un **efecte significatiu** sobre el temps de supervivència p = 0,043. Com que el coeficient de gender és negatiu (-0,790), el grup *dones* presenta un temps de supervivència més curt que el grup de referència, és a dir, l’esdeveniment tendeix a produir-se abans en aquest grup.
+En el model de supervivència paramètric Weibull, la variable **gènere** també té un efecte significatiu sobre el temps de supervivència p = 0,043. Com que el coeficient de gender és negatiu (-0,790), el grup *dones* presenta un temps de supervivència més curt que el grup de referència, és a dir, l’esdeveniment tendeix a produir-se abans en aquest grup.
 
 ### Exponencial vs Weibull
 
@@ -308,11 +300,11 @@ $$
 summary(m.weib)$table
 ```
 
-En el model de supervivència paramètric Weibull, la variable **gènere** té un efecte estadísticament significatiu sobre el temps de supervivència (p = 0,0435). Com que el coeficient de gender és negatiu (-0,7904), el grup *dones* un temps de supervivència inferior al del grup de referència, és a dir, l’esdeveniment es produeix abans en aquest grup. A més, el paràmetre Log(scale) = 0,3034 és significatiu (p = 0,0182), cosa que indica que el paràmetre d’escala del model és diferent d’1 i, per tant, **el model Weibull és més adequat que l’exponencial**, ja que no assumeix una taxa de risc constant.
+En el model de supervivència paramètric Weibull, la variable **gènere** té un efecte estadísticament significatiu sobre el temps de supervivència (p = 0,0435). Com que el coeficient de gender és negatiu (-0,7904), el grup de *dones* té un temps de supervivència inferior al del grup de referència, és a dir, l’esdeveniment es produeix abans en aquest grup. A més, el paràmetre Log(scale) = 0,3034 és significatiu (p = 0,0182), cosa que indica que el paràmetre d’escala del model és diferent d’1 i, per tant, **el model Weibull és més adequat que l’exponencial**, ja que no assumeix una taxa de risc constant.
 
 ### Log-logistic 
 
-El model log-logístic permet una taxa de risc no monòtona, podent créixer inicialment i després decréixer, cosa que l'exponencial i el Weibull no poden capturar.
+El model log-logístic permet una **taxa de risc no monòtona**, podent créixer inicialment i després decréixer, cosa que l'exponencial i el Weibull no poden capturar.
 
 ```{r}
 m.loglog <- survreg(surv.whas ~ gender, dist = "loglogistic", data = data)
@@ -320,9 +312,11 @@ summary(m.loglog)
 extractAIC(m.loglog)
 ```
 
-En el model de supervivència paramètric log-logístic, la variable gènere té un efecte significatiu sobre el temps de supervivència. Com que el coeficient de gender és negatiu, el grup *dones* presenta un temps de supervivència més curt que el grup de referència, és a dir, l’esdeveniment tendeix a produir-se abans en aquest grup. A més, el contrast global del model (p = 0,047) indica que incloure el gènere millora significativament l’ajust respecte al model sense covariables.
+En el model de supervivència paramètric log-logístic, la variable **gènere** té un efecte significatiu sobre el temps de supervivència. Com que el coeficient de gender és negatiu, el grup *dones* presenta un temps de supervivència més curt que el grup de referència, és a dir, l’esdeveniment tendeix a produir-se abans en aquest grup. A més, el contrast global del model (p = 0,047) indica que incloure el gènere millora significativament l’ajust respecte al model sense covariables.
 
 ## Hipòtesis dels models i criteris de validació
+
+- Anàlisi segons els paràmetres AIC: 
 
 ```{r}
 
@@ -331,16 +325,18 @@ cat("Exponencial: ", extractAIC(m.exp)[2], "\n")
 cat("Weibull:     ", extractAIC(m.weib)[2], "\n")
 cat("Log-logístic:", extractAIC(m.loglog)[2], "\n")
 ```
-Tot i que els resultats son força igualats, **la distribució Weibull és la millor en termes d'AIC.**
+Tot i que els resultats son força igualats, **la distribució Weibull** és la millor en termes d'AIC.
+
+- Anàlisi segons els tests de versemblança: 
 
 ```{r}
  # Test versemblança Exponencial vs Weibull
 (chisq.exp.weib <- -2 * (m.exp$loglik[2] - m.weib$loglik[2]))
 1 - pchisq(chisq.exp.weib, df = 1)
 ```
-El test de versemblança rebutja el model exponencial en favor del Weibull (p-valor = 0.013), indicant que **la taxa de risc no és constant al llarg del temps.**
+El test de versemblança rebutja el model exponencial en favor del Weibull (p-valor = 0.013), indicant que la taxa de risc no és constant al llarg del temps.
 
-Comparació amb els parametres de kapkan meier, per veure com de semblant son els valors.
+- Comparació amb els parametres de kapkan meier, per veure com de semblant son els valors: 
 
 ```{r}
 # Models
@@ -399,19 +395,15 @@ legend("topright",
 
 El gràfic mostra que el model Weibull s’ajusta força bé a les corbes de Kaplan-Meier per a tots dos grups, ja que segueix bastant de prop la tendència observada de la supervivència. A més, s’observa clarament que els homes presenten una supervivència més alta que les dones al llarg del temps, fet coherent amb el coeficient negatiu de la variable gender en el model.
 
+Com a resum, es pot concloure: 
+
 ### Evidència del compliment de les hipòtesis
 
-**Hipòtesi AFT** : El gràfic log-log mostra una relació clarament lineal entre $\ln(-\ln S(t))$ i $\ln(t)$ per als dos grups, amb $R^2$ de 0.942 (homes) i 0.964 (dones). Això confirma el compliment de la hipòtesi AFT, que és compatible tant amb el model 
-Weibull com amb l'Exponencial i el log-logístic.
+- **Hipòtesi AFT** : El gràfic log-log mostra una relació clarament lineal entre $\ln(-\ln S(t))$ i $\ln(t)$ per als dos grups, amb $R^2$ de 0.942 (homes) i 0.964 (dones). Això confirma el compliment de la hipòtesi AFT, que és compatible tant amb el model Weibull com amb l'Exponencial i el log-logístic.
 
-**Hipòtesi PH**: Les dues rectes del gràfic log-log presenten pendents similars com s'ha calculat anteriorment i aproximadament paral·lels, cosa que recolza el compliment de la 
-hipòtesi de riscos proporcionals. Això implica que el hazard ratio entre 
-homes i dones es manté constant al llarg del temps.
+- **Hipòtesi PH**: Les dues rectes del gràfic log-log presenten pendents similars com s'ha calculat anteriorment i aproximadament paral·lels, cosa que recolza el compliment de la hipòtesi de riscos proporcionals. Això implica que el hazard ratio entre homes i dones es manté constant al llarg del temps.
 
-**Hipòtesi PO**: El gràfic log(SO) mostra dues 
-bandes que no són perfectament paral·leles i presenten certa curvatura, 
-especialment als extrems. Això indica que la hipòtesi PO, pròpia del 
-model log-logístic, no es compleix de manera massa.
+- **Hipòtesi PO**: El gràfic log(SO) mostra dues bandes que no són perfectament paral·leles i presenten certa curvatura, especialment als extrems. Això indica que la hipòtesi PO, pròpia del model log-logístic, no es compleix de manera massa.
 
 ### Criteris de validació dels models
 
@@ -449,9 +441,9 @@ El **model Weibull** és el més adequat pels motius següents:
 
 - És l'únic model que compleix alhora les hipòtesis **AFT i PH**, facilitant la interpretació tant en termes de factors d'acceleració com de hazard ratios.
 
-# Interpretació model
+# Interpretació model escollit
 
-Després d'escollir la distribució com la weibull, estudiarem diferents aspectes del model:
+Després d'escollir la distribució de weibull com la millor, estudiarem diferents aspectes del model:
 
 ## Paràmetre escala
 
@@ -529,8 +521,6 @@ print(medianes)
 El temps medià de supervivència és de 2885 dies en homes i de 1309 dies en dones, el que representa que les dones assoleixen la meitat dels esdeveniments gairebé en la meitat del temps que els homes com hem observat anteriorment en el s apartats anteriors a aquest.
 
 La tendència es manté de forma consistent als percentils 25 i 75, on les diferències entre grups són igualment notables, reforçant la conclusió que el gènere és un factor pronòstic rellevant en aquest model.
-
-
 
 ## Relacions & Coherències
 
