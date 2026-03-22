@@ -1,0 +1,1796 @@
+---
+title: 'Tasca 2:  MODELS PARAMÈTRICS DE SUPERVIVÈNCIA'
+author: "Mario Aragón, Laura Belmonte, Lena Lledós, Miguel Rodríguez"
+date: "2026-03-04"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+\newpage
+\renewcommand{\contentsname}{Índex}
+\tableofcontents
+\newpage
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introducció
+
+En aquesta tasca es practicaran els models paramètrics de regressió més
+utilitzats en l'anàlisi de la supervivència, concretament els models
+exponencial, Weibull i log-logístic.
+
+Les dades a utilitzar són "whas100.txt". En aquestes dades s'ha mesurat
+el temps, en dies, fins la mort dels pacients que han ingressat a
+l'hospital amb un infart agut de miocardi.
+
+L'objectiu principal és estudiar si hi ha diferències en els temps de
+supervivència dels pacients segons el gènere, ajustant per l'edat i
+l'índex de massa corporal. Per fer-ho, s'ajustaran diferents models
+paramètrics sota les hipòtesis de temps de vida accelerat (AFT), riscos
+proporcionals (PH) i odds proporcionals (PO), comparant els models
+mitjançant criteris com l'AIC i el test de raó de versemblança. Els
+resultats s'interpretaran en termes de factors d'acceleració (FA) i
+hazard ratios (HR), i es contrastarà si homes i dones presenten la
+mateixa supervivència davant d'un episodi d'infart agut de miocardi.
+
+Es carreguen les llibreries necessàries i les dades.
+
+```{r,message=FALSE}
+library(knitr)
+library(survival)
+library(survminer)
+```
+
+```{r,echo=FALSE,message=FALSE}
+data <- read.table("whas100.txt", header = TRUE)
+
+data$gender <- factor(data$gender, levels = c(0, 1), labels = c("Home", "Dona"))
+data <- read.table("whas100.txt", header = TRUE)
+```
+
+Les variables a estudiar en aquest estudi són:
+
+```{r,echo=FALSE,message=FALSE}
+n.var2 <- names(data)
+kable(data.frame(Variables= n.var2[c(1,2,4,6,7)], Descripció= c("Temps en dies fins la mort del pacient","Indicador de censura per la dreta (censurat/observat)","Gènere del pacient (0=Home, 1=Dona)
+","Edat (menors de 70 anys (<70), majors de 70 anys (70+))
+","Índex massa corporal (kg/m^2) (Baix (menys de 25), Alt (25+))")))
+```
+
+```{r summary,message=FALSE,echo=FALSE}
+summary(data)
+```
+
+Per tal d'aplicar el nostre estudi a un cas concret, es realitza una
+anàlisi de dades de supervivència corresponents a pacients ingressats
+per un infart agut de miocardi. La variable principal d'interès és el
+temps, mesurat en dies, fins a la mort del pacient (lenfol), tenint en
+compte la presència de censura per la dreta mitjançant l'indicador
+fstat. Com a variable explicativa principal s'utilitza el gènere del
+pacient (gender), ajustant per l'edat categoritzada (fage) i l'índex de
+massa corporal (fbmi), amb l'objectiu d'avaluar si homes i dones
+presenten diferències en la supervivència després d'un infart agut de
+miocardi mitjançant models paramètrics de regressió.
+
+L'objectiu principal és avaluar si existeixen diferències en els temps
+de supervivència segons el gènere dels pacients (gender). Atès que
+l'edat (fage) i l'índex de massa corporal (fbmi) poden influir en la
+supervivència, l'anàlisi es realitzarà ajustant per aquestes variables
+mitjançant models paramètrics de regressió. En concret, es pretén
+determinar si homes i dones presenten la mateixa funció de supervivència
+després d'un episodi d'infart agut de miocardi, tenint en compte
+possibles efectes de confusió i interacció associats a l'edat i a
+l'índex de massa corporal. Per fer-ho, s'ajustaran i compararan els
+models exponencial, Weibull i log-logístic, i els resultats
+s'interpretaran en termes de factors d'acceleració (FA) i hazard ratios
+(HR).
+
+# Models Paramètrics
+
+D’entre els diferents models paramètrics estudiats, s’avaluaran aquells
+que puguin ajustar-se millor a les dades per tal d’identificar quin és
+el més adequat. Escollir el model més apropiat permetrà realitzar una
+anàlisi més exhaustiva amb la resta de variables de la base de dades i
+reduir el risc d’interpretar de manera incorrecta les relacions
+observades. Els mdels a estudiar són:
+
+**Model Exponencial**
+
+$$
+h(t) = \lambda = \exp(\beta_0 + \beta_1 \,\mathrm{gender})
+$$
+
+$$
+\mathrm{gender} = 1:\quad h(t) = \exp(\beta_0 + \beta_1)
+$$
+
+$$
+\mathrm{gender} = 0:\quad h(t) = \exp(\beta_0)
+$$
+
+$$
+\mathrm{HR}(\mathrm{gender}=1 \text{ vs. } \mathrm{gender}=0)
+= \frac{\exp(\beta_0 + \beta_1)}{\exp(\beta_0)}
+= \exp(\beta_1)
+$$
+
+**Model de Weibull**
+
+$$
+S(t) = \exp(-\lambda t^p)
+\;\Rightarrow\;
+t = \left[-\ln(S(t))\right]^{1/p} \times \frac{1}{\lambda^{1/p}}
+$$
+
+$$
+\text{Let } \frac{1}{\lambda^{1/p}} = \exp(\alpha_0 + \alpha_1 \mathrm{gender}),
+$$
+
+$$
+t = \left[-\ln(S(t))\right]^{1/p} \times \exp(\alpha_0 + \alpha_1 \mathrm{gender})
+$$
+
+$$
+\text{Let } S(t)=q,\quad
+t = \left[-\ln(q)\right]^{1/p} \times \exp(\alpha_0 + \alpha_1 \mathrm{gender})
+$$
+
+$$
+\text{Acceleration Factor: } \gamma \; (\mathrm{gender}=1 \text{ vs. } \mathrm{gender}=0)
+$$
+
+$$
+\gamma =
+\frac{\left[-\ln(q)\right]^{1/p} \times \exp(\alpha_0 + \alpha_1)}
+{\left[-\ln(q)\right]^{1/p} \times \exp(\alpha_0)}
+= \exp(\alpha_1)
+$$
+
+**Model Log-logistic**
+
+$$
+S(t)=\frac{1}{1+\lambda t^p}
+=\frac{1}{1+\left(\lambda^{1/p}t\right)^p}
+$$
+
+$$
+t=\left[\frac{1}{S(t)}-1\right]^{1/p}\cdot \frac{1}{\lambda^{1/p}}
+$$
+
+$$
+\text{Let } \frac{1}{\lambda^{1/p}}=\exp(\alpha_0+\alpha_1\,\text{gender})
+$$
+
+$$
+t=\left[\frac{1}{S(t)}-1\right]^{1/p}\cdot \exp(\alpha_0+\alpha_1\,\text{gender})
+$$
+
+$$
+\text{Let } S(t)=q,\quad
+t=\left[q^{-1}-1\right]^{1/p}\cdot \exp(\alpha_0+\alpha_1\,\text{gender})
+$$
+
+$$
+\text{Acceleration Factor:}
+$$
+
+$$
+\begin{aligned}
+\text{AFT: } \lambda^{1/p} &= \exp[-(\alpha_0 + \alpha_1 \text{gender})] \\
+(1/p)\ln \lambda &= -(\alpha_0 + \alpha_1 \text{gender}) \\
+\ln \lambda &= -p\,(\alpha_0 + \alpha_1 \text{gender})
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+\text{PO: } \lambda &= \exp(\beta_0 + \beta_1 \text{gender}) \\
+\ln \lambda &= \beta_0 + \beta_1 \text{gender}
+\end{aligned}
+$$
+
+$$
+\beta_1 = -\alpha_1 \cdot p \;=\; \textit{FOR} = \left(\frac{1}{\gamma}\right)^p
+$$
+
+```{r, include=FALSE,echo=FALSE}
+surv.whas <- with(data, Surv(lenfol, fstat))
+km.gender <- survfit(surv.whas ~ gender, data = data)
+km.gender
+ 
+ggsurvplot(km.gender, data = data, conf.int = TRUE,
+           xlab = "Temps en dies", ylab = "Supervivència",
+           legend.labs = c("Home", "Dona"),
+           title = "Funcions de Supervivència KM per Gènere",
+           palette = c("#2E9FDF", "#E7B800"))
+```
+
+Per comprovar quin mètode és més adequat entre el model exponencial i el
+model de Weibull, s’utilitza la gràfica de la combinació lineal dels
+logaritmes de la funció de supervivència pròpia de la distribució de
+Weibull. Aquest criteri es basa en la linealitat de la corba: si la
+representació és aproximadament lineal, el model de Weibull es considera
+adequat. A més, si la pendent és propera a 1, també es pot considerar
+adequat el model exponencial, ja que aquest constitueix un cas
+particular del model de Weibull.
+
+La transformació lineal de la funció de supervivència $S(t)$ en l'escala
+Weibull s'expressa com:
+
+$$
+\log \big(-\log(S(t))\big) = \log(\lambda) + p \log(t)
+$$
+
+Això implica:
+
+-   Si la relació $\log(-\log(S(t)))$ vs $\log(t)$ és lineal, la
+    distribució és **Weibull**.\
+-   Si la pendent $p \approx 1$, la distribució és **Exponencial**.
+
+Els dos gràfics serveixen per avaluar l'adequació del supòsit de riscos
+proporcionals i la distribució de Weibull. En el primer cas de corbes
+log-log per gènere, si el supòsit de riscos proporcionals es complís,
+les corbes de Home i Dona haurien de ser aproximadament paral·leles al
+llarg del temps.
+
+```{r}
+par(mfrow = c(1, 2))
+plot(km.gender, fun = "cloglog",
+     xlab = "Log(Temps en dies)", ylab = "log(-log(S(t)))",
+     lty = c(1, 3), col = c("blue", "red"))
+legend("topleft", c("Home", "Dona"), lty = c(1, 3), col = c("blue", "red"))
+title("Corbes log-log per Gènere")
+
+plot(log(km.gender$time),log(-log(km.gender$surv)))
+```
+
+S'observa, però, que les dues corbes comencen molt properes i es van
+separant progressivament a mesura que avança el temps, amb la corba de
+la Dona per sobre implicant un risc acumulat major als dels homes, la
+qual cosa suggereix una **possible violació del supòsit de
+proporcionalitat**, o almenys que l'efecte del gènere no és constant en
+el temps.
+
+Pel que fa al segon gràfic, que representa la mateixa informació però
+amb punts, si les dades seguissin una distribució de Weibull, aquests
+haurien de disposar-se al voltant d’una línia recta. Tanmateix,
+s’observa una certa curvatura, especialment als extrems, fet que posa en
+dubte l’ajust d’un model paramètric de Weibull. A més, les rectes no
+semblen ser paral·leles, cosa que podria indicar un possible
+incompliment de les hipòtesis dels models AFT i PH. No obstant això, i
+segons l’evidència disponible, la distribució de Weibull continua sent,
+per ara, la millor candidata, tot i que les eines gràfiques no permeten
+confirmar-ho de manera concloent.
+
+Per comprovar si es compleix la hipòtesi de riscos proporcionals entre
+homes i dones, ajustem per separat una recta sobre la transformació de
+Supervivència. Si les pendents de les dues rectes són semblants, això
+dona suport a que els riscos siguin proporcionals.
+
+```{r}
+# Índexs de cada grup
+n_homes   <- km.gender$strata[1]
+n_dones   <- km.gender$strata[2]
+idx_homes <- 1:n_homes
+idx_dones <- (n_homes + 1):(n_homes + n_dones)
+
+# Homes (gender=0)
+surv_homes  <- km.gender$surv[idx_homes]
+time_homes  <- km.gender$time[idx_homes]
+valid_homes <- surv_homes > 0 & surv_homes < 1
+
+summary(lm(log(-log(surv_homes[valid_homes])) ~ 
+           log(time_homes[valid_homes])))
+
+# Dones (gender=1)
+surv_dones  <- km.gender$surv[idx_dones]
+time_dones  <- km.gender$time[idx_dones]
+valid_dones <- surv_dones > 0 & surv_dones < 1
+
+summary(lm(log(-log(surv_dones[valid_dones])) ~ 
+           log(time_dones[valid_dones])))
+```
+
+Els $R^2$ de tots dos grups són molt elevats, indicant que la relació
+entre $\ln(-\ln S(t))$ i $\ln(t)$ és clarament lineal, cosa que no
+s'apreciaba correctament gràficament.
+
+Per tant, la distribució Weibull s'ajusta bé a les dades dels dos grups.
+Entre exponencial i Weibull, la distribució de Weibull sembla ser la més
+ajustada.
+
+| Grup  | Pendent ($p$) | $R^2$ |
+|-------|---------------|-------|
+| Homes | 0.595         | 0.942 |
+| Dones | 0.659         | 0.964 |
+
+Al ser les dues pendents clarament inferiors a 1, implica que **la
+distribució Weibull és preferible a l'Exponencial**, que requeriria
+$p = 1$.
+
+A més, els dos pendents són similars entre si, cosa que suggereix que
+els dos grups comparteixen el mateix paràmetre $p$. Això implica que es
+pot assumir la hipòtesi de riscos proporcionals, el hazard ratio entre
+homes i dones és constant al llarg del temps.
+
+En resum, les dades s'ajusten a un **model Weibull** amb riscos
+proporcionals, que és alhora un model AFT i PH, la qual cosa facilita la
+interpretació tant en termes de factors d'acceleració com de hazard
+ratios.
+
+Després de comparar les distribucions Weibull i Exponencial, estudiem
+l’ajust de la distribució log-logística, una de les més complexes, a les
+dades. Igual que en el cas de la distribució Weibull, també es pot
+observar una relació lineal entre els logaritmes.
+
+```{r}
+plot(log(km.gender$time),
+     log(km.gender$surv / (1 - km.gender$surv)),
+     xlab = "Log(Temps en dies)", ylab = "Log(Survival Odds)",
+     col = ifelse(km.gender$strata == "gender=0", "blue", "red"), pch = 16)
+title("Corbes log(SO) per Gènere")
+```
+
+El gràfic del logaritme dels odds de supervivència versus $\ln(t)$
+mostra dues bandes clarament separades, corresponents als dos grups de
+gènere. Tot i que s'observa una tendència descendent aproximadament
+lineal, les dues bandes no són perfectament paral·leles i presenten
+certa curvatura als extrems. Això suggereix que la distribució
+log-logística pot no ser la millor opció comparant amb la Weibull i que
+la hipòtesi d'odds proporcionals no es compleix de manera clara.
+
+En conjunt, amb eines gràfiques sembla que la millor distribució és
+Weibull, més adequat per a aquestes dades, mentre que el model
+log-logístic presenta un ajust menys satisfactori.
+
+## Models
+
+A continuació, s'ajusten els diferents models segons les tres
+distribucions possibles per a la variable gènere, amb l'objectiu de
+determinar amb precisió quina s'adapta millor a les dades. Per fer-ho,
+s'empren dos criteris de selecció: el **p-valor i el criteri
+d'informació d'Akaike (AIC)**, on un valor menor d'aquest últim indica
+un millor ajust del model.
+
+### Exponencial
+
+El model exponencial assumeix una **taxa de risc constant** (p = 1) i
+**riscos proporcionals** entre grups.
+
+```{r}
+m.exp <- survreg(surv.whas ~ gender, dist = "exponential", data = data)
+summary(m.exp)
+extractAIC(m.exp)
+```
+
+En el model de supervivència paramètric exponencial, la variable
+**gènere** té un **efecte significatiu** sobre el temps de supervivència
+p = 0,033. Com que el coeficient de gender és negatiu, -0,602, el grup
+*dones* presenta un temps de supervivència menor que el grup de
+referència, és a dir, la mort es produeix abans en aquest grup.
+
+### Weibull
+
+El model de Weibull generalitza l'exponencial permetent una **taxa de
+risc monòtona creixent o decreixent** segons el valor del **paràmetre de
+forma p.**
+
+```{r}
+m.weib <- survreg(surv.whas ~ gender, dist = "weibull", data = data)
+summary(m.weib)
+extractAIC(m.weib)
+```
+
+En el model de supervivència paramètric Weibull, la variable **gènere**
+també té un efecte significatiu sobre el temps de supervivència p =
+0,043. Com que el coeficient de gender és negatiu (-0,790), el grup
+*dones* presenta un temps de supervivència més curt que el grup de
+referència, és a dir, l’esdeveniment tendeix a produir-se abans en
+aquest grup.
+
+### Exponencial vs Weibull
+
+$$
+H_0: p = 1 \qquad \text{vs} \qquad H_1: p \neq 1
+$$
+
+```{r}
+summary(m.weib)$table
+```
+
+En el model de supervivència paramètric Weibull, la variable **gènere**
+té un efecte estadísticament significatiu sobre el temps de
+supervivència (p = 0,0435). Com que el coeficient de gender és negatiu
+(-0,7904), el grup de *dones* té un temps de supervivència inferior al
+del grup de referència, és a dir, l’esdeveniment es produeix abans en
+aquest grup. A més, el paràmetre Log(scale) = 0,3034 és significatiu (p
+= 0,0182), cosa que indica que el paràmetre d’escala del model és
+diferent d’1 i, per tant, **el model Weibull és més adequat que
+l’exponencial**, ja que no assumeix una taxa de risc constant.
+
+### Log-logistic
+
+El model log-logístic permet una **taxa de risc no monòtona**, podent
+créixer inicialment i després decréixer, cosa que l'exponencial i el
+Weibull no poden capturar.
+
+```{r}
+m.loglog <- survreg(surv.whas ~ gender, dist = "loglogistic", data = data)
+summary(m.loglog)
+extractAIC(m.loglog)
+```
+
+En el model de supervivència paramètric log-logístic, la variable
+**gènere** té un efecte significatiu sobre el temps de supervivència.
+Com que el coeficient de gender és negatiu, el grup *dones* presenta un
+temps de supervivència més curt que el grup de referència, és a dir,
+l’esdeveniment tendeix a produir-se abans en aquest grup. A més, el
+contrast global del model (p = 0,047) indica que incloure el gènere
+millora significativament l’ajust respecte al model sense covariables.
+
+## Hipòtesis dels models i criteris de validació
+
+-   Anàlisi segons els paràmetres AIC:
+
+```{r}
+
+cat("\n--- Comparació AIC (model amb gender) ---\n")
+cat("Exponencial: ", extractAIC(m.exp)[2], "\n")
+cat("Weibull:     ", extractAIC(m.weib)[2], "\n")
+cat("Log-logístic:", extractAIC(m.loglog)[2], "\n")
+```
+
+Tot i que els resultats son força igualats, **la distribució Weibull**
+és la millor en termes d'AIC.
+
+-   Anàlisi segons els tests de versemblança:
+
+```{r}
+ # Test versemblança Exponencial vs Weibull
+(chisq.exp.weib <- -2 * (m.exp$loglik[2] - m.weib$loglik[2]))
+1 - pchisq(chisq.exp.weib, df = 1)
+```
+
+El test de versemblança rebutja el model exponencial en favor del
+Weibull (p-valor = 0.013), indicant que la taxa de risc no és constant
+al llarg del temps.
+
+-   Comparació amb els parametres de kapkan meier, per veure com de
+    semblant son els valors:
+
+```{r}
+# Models
+m.exp    <- survreg(surv.whas ~ gender, dist = "exponential",  data = data)
+m.weib   <- survreg(surv.whas ~ gender, dist = "weibull",      data = data)
+m.loglog <- survreg(surv.whas ~ gender, dist = "loglogistic",  data = data)
+
+# Patrons i percentils
+pattern0 <- data.frame(gender = 0)
+pattern1 <- data.frame(gender = 1)
+pct2     <- 0:100 / 100
+survival <- 1 - pct2
+
+# Prediccions dels tres models
+days0.exp    <- predict(m.exp,    newdata = pattern0, type = "quantile", p = pct2)
+days1.exp    <- predict(m.exp,    newdata = pattern1, type = "quantile", p = pct2)
+days0.weib   <- predict(m.weib,   newdata = pattern0, type = "quantile", p = pct2)
+days1.weib   <- predict(m.weib,   newdata = pattern1, type = "quantile", p = pct2)
+days0.loglog <- predict(m.loglog, newdata = pattern0, type = "quantile", p = pct2)
+days1.loglog <- predict(m.loglog, newdata = pattern1, type = "quantile", p = pct2)
+
+
+#Plot 1: Exponencial 
+plot(km.gender, xlab = "Temps en dies", ylab = "Supervivència",
+     lty = c(1, 3), col = c("blue", "red"),
+     main = "Exponencial vs KM")
+points(days0.exp, survival, pch = 21, col = "blue")
+points(days1.exp, survival, pch = 16, col = "red")
+legend("topright",
+       c("KM Home", "KM Dona", "Exp. Home", "Exp. Dona"),
+       lty = c(1, 3, NA, NA), pch = c(NA, NA, 21, 16),
+       col = c("blue", "red", "blue", "red"), cex = 0.8)
+
+# Plot 2: Weibull 
+plot(km.gender, xlab = "Temps en dies", ylab = "Supervivència",
+     lty = c(1, 3), col = c("purple", "green"),
+     main = "Weibull vs KM")
+points(days0.weib, survival, pch = 21, col = "purple")
+points(days1.weib, survival, pch = 16, col = "green")
+legend("topright",
+       c("KM Home", "KM Dona", "Weibull Home", "Weibull Dona"),
+       lty = c(1, 3, NA, NA), pch = c(NA, NA, 21, 16),
+       col = c("purple", "green", "purple", "green"), cex = 0.8)
+
+# Plot 3: Log-logístic
+plot(km.gender, xlab = "Temps en dies", ylab = "Supervivència",
+     lty = c(1, 3), col = c("skyblue", "orange"),
+     main = "Log-logístic vs KM")
+points(days0.loglog, survival, pch = 21, col = "skyblue")
+points(days1.loglog, survival, pch = 16, col = "orange")
+legend("topright",
+       c("KM Home", "KM Dona", "Log-log. Home", "Log-log. Dona"),
+       lty = c(1, 3, NA, NA), pch = c(NA, NA, 21, 16),
+       col = c("skyblue", "orange", "skyblue", "orange"), cex = 0.8)
+```
+
+El gràfic mostra que el model Weibull s’ajusta força bé a les corbes de
+Kaplan-Meier per a tots dos grups, ja que segueix bastant de prop la
+tendència observada de la supervivència. A més, s’observa clarament que
+els homes presenten una supervivència més alta que les dones al llarg
+del temps, fet coherent amb el coeficient negatiu de la variable gender
+en el model.
+
+Com a resum, es pot concloure:
+
+### Evidència del compliment de les hipòtesis
+
+-   **Hipòtesi AFT** : El gràfic log-log mostra una relació clarament
+    lineal entre $\ln(-\ln S(t))$ i $\ln(t)$ per als dos grups, amb
+    $R^2$ de 0.942 (homes) i 0.964 (dones). Això confirma el compliment
+    de la hipòtesi AFT, que és compatible tant amb el model Weibull com
+    amb l'Exponencial i el log-logístic.
+
+-   **Hipòtesi PH**: Les dues rectes del gràfic log-log presenten
+    pendents similars com s'ha calculat anteriorment i aproximadament
+    paral·lels, cosa que recolza el compliment de la hipòtesi de riscos
+    proporcionals. Això implica que el hazard ratio entre homes i dones
+    es manté constant al llarg del temps.
+
+-   **Hipòtesi PO**: El gràfic log(SO) mostra dues bandes que no són
+    perfectament paral·leles i presenten certa curvatura, especialment
+    als extrems. Això indica que la hipòtesi PO, pròpia del model
+    log-logístic, no es compleix de manera massa.
+
+### Criteris de validació dels models
+
+Per seleccionar el millor model paramètric disposem dels criteris
+següents:
+
+-   **Gràfics de validació**: el gràfic log-log valida l'ajust Weibull i
+    la hipòtesi PH, mentre que el gràfic log(SO) valida l'ajust
+    log-logístic i la hipòtesi PO, comentats anteriorment.
+
+-   **Test Log(scale)**: contrasta si $p = 1$ (model Exponencial) o
+    $p \neq 1$ (model Weibull). Un p-valor inferior a 0.05 implica que
+    el model Weibull millora l'Exponencial.
+
+-   **AIC**: penalitza la complexitat del model; un valor menor indica
+    millor ajust.
+
+-   **Test de raó de versemblança (LRT)**: compara models imbricats, com
+    ara l'Exponencial (cas particular del Weibull amb $p = 1$) versus el
+    Weibull.
+
+| Model        | AIC      | Log(scale) p-valor | Hipòtesis              |
+|--------------|----------|--------------------|------------------------|
+| Exponencial  | 916.5779 | --                 | Només AFT i PH ($p=1$) |
+| Weibull      | 912.342  | 0.018              | AFT i PH ($p \neq 1$)  |
+| Log-logístic | 914.778  | 0.179              | AFT i PO               |
+
+El **model Weibull** és el més adequat pels motius següents:
+
+-   Els pendents del gràfic log-log (0.595 i 0.659) són clarament
+    inferiors a 1, descartant el model Exponencial.
+
+-   El test sobre Log(scale) és significatiu, confirmant que $p \neq 1$.
+
+-   Presenta l'AIC més baix dels tres models.
+
+-   El gràfic log(SO) no dóna suport al model log-logístic.
+
+-   És l'únic model que compleix alhora les hipòtesis **AFT i PH**,
+    facilitant la interpretació tant en termes de factors d'acceleració
+    com de hazard ratios.
+
+# Interpretació model escollit
+
+Després d'escollir la distribució de weibull com la millor, estudiarem
+diferents aspectes del model:
+
+## Paràmetre escala
+
+Per modelitzar el temps fins a l'esdeveniment s'ha ajustat un model amb
+la distribució de Weibull com hem comentat anteriorment. Aquest model
+permet estimar el paràmetre d'escala p, que caracteritza la forma de la
+funció de risc i determina si aquest és creixent, decreixent o constant
+al llarg del temps.
+
+```{r}
+cat("Escala (1/p):", m.weib$scale, "\n")
+cat("p =", 1 / m.weib$scale, "\n")
+```
+
+Segons el resultat del valor d'escala, una estimació del paràmetre
+obtinguda és $\frac{1}{p}$ = 1.3544, la qual cosa correspon a un valor
+de p = 0.7383. Com que p \< 1, això indica que la funció de risc és
+decreixent amb el temps, implicant que la probabilitat de que es
+produeixi la mort després d'un atac de cor agut és més alta a l'inici
+del seguiment i disminueix progressivament a mesura que avança el temps.
+
+## Factor d'acceleració (AFT)
+
+El factor d’acceleració (AF) descriu l'estirament o la contracció de les
+funcions de supervivència quan es compara un grup amb un altre. Així
+doncs quantifica en quina mesura el temps fins a l'esdeveniment es
+estirat segons els sexe dels individus, dones respecte a homes.
+
+```{r}
+
+FA.gender <- exp(m.weib$coef[2])
+IC.FA <- c(exp(m.weib$coef[2] - 1.96 * sqrt(m.weib$var[2, 2])),
+           exp(m.weib$coef[2] + 1.96 * sqrt(m.weib$var[2, 2])))
+cat("\nFactor d'Acceleració (FA) Dona vs Home:\n")
+cat("FA =", FA.gender, "\n")
+cat("IC 95%: [", IC.FA[1], ",", IC.FA[2], "]\n")
+```
+
+Pel que fa al grup de les dones respcte als homes, els seu factor
+d'acceleració és de $\gamma = 0.454$ (IC 95%: [0.211, 0.977]). Com que
+s'ha obtingut un valor de $\gamma$ inferior a 1 indica que el temps fins
+a l'esdeveniment és més curt en les dones tenint una supervivencia
+inferior. Concretament, el temps esperat en dones és aproximadament un
+54.6% inferior al dels homes. Atès que l'interval de confiança no inclou
+l'1, aquesta diferència és estadísticament significativa al nivell del
+5%.
+
+## Hazard Ratio (PH) per Weibull
+
+La relació entre el *hazard ratio* (HR) i el factor d'acceleració (AF)
+en el model de Weibull és:
+
+$$
+HR = \left(\frac{1}{AF}\right)^p = \exp\left(-\frac{\alpha_1}{\text{scale}}\right)
+$$
+
+on $p$ és el paràmetre de forma del model.
+
+L'assumpció subjacent és que l'efecte de les covariables és
+**multiplicatiu (proporcional)** respecte de la funció de risc:
+
+$$
+h(t \mid X) = h_0(t)\cdot \exp(\beta'X) = h_0(t)\cdot \theta, \quad \forall t \geq 0
+$$
+
+on:
+
+-   $\beta' = (\beta_1, \ldots, \beta_p)$: coeficients de regressió,
+-   $h_0(t) = h(t \mid X = 0)$: funció de risc basal,
+-   $\theta$: *hazard ratio*.
+
+El *hazard ratio* mesura el canvi d'escala en la funció de risc causat
+per les covariables.
+
+Igual que el factor d'acceleració, el *hazard ratio* és constant al
+llarg del temps.
+
+```{r}
+HR.gender <- exp(-m.weib$coef[2] / m.weib$scale)
+cat("\nHazard Ratio (HR) Dona vs Home:\n")
+cat("HR =", HR.gender, "\n")
+```
+
+El Hazard Ratio obtingut per a dones respecte a homes és de
+$\theta = 1.792$, la qual cosa indica que les dones presenten un risc
+d'experimentar l'esdeveniment aproximadament un 79.2% superior al dels
+homes durant tot el seguiment del estudi. Ixí doncs, el resulat és
+consistent amb el $\gamma < 1$ obtingut anteriorment, concluint que les
+dones arriben a l'esdeveniment de forma més ràpida.
+
+Per tal de quantificar les diferències entre grups de manera més
+interpretable, s'han estimat els percentils (25, 50, 75) del temps de
+supervivència per a homes i dones per separat.
+
+```{r}
+# Medianes per cada grup
+pct <- c(0.25, 0.50, 0.75)
+medianes <- cbind(pct,
+                  predict(m.weib, newdata = pattern0, type = "quantile", p = pct),
+                  predict(m.weib, newdata = pattern1, type = "quantile", p = pct))
+colnames(medianes) <- c("Percentil", "Home", "Dona")
+cat("\nPercentils del temps de supervivència:\n")
+print(medianes)
+```
+
+El temps medià de supervivència és de 2885 dies en homes i de 1309 dies
+en dones, el que representa que les dones assoleixen la meitat dels
+esdeveniments gairebé en la meitat del temps que els homes com hem
+observat anteriorment en el s apartats anteriors a aquest.
+
+La tendència es manté de forma consistent als percentils 25 i 75, on les
+diferències entre grups són igualment notables, reforçant la conclusió
+que el gènere és un factor pronòstic rellevant en aquest model.
+
+## Relacions & Coherències
+
+Per validar els resultats obtinguts amb el model de Weibull, es compara
+amb el test log-rank no paramètric, i amb el test de raó de versemblança
+(LRT) derivat del propi model.
+
+```{r}
+# Coherència amb test log-rank 
+test.logrank <- survdiff(surv.whas ~ gender, data = data)
+test.logrank
+ 
+# Relació LRT model vs LR test
+(chisq.lrt <- -2 * (m.weib$loglik[1] - m.weib$loglik[2]))
+1 - pchisq(chisq.lrt, df = 1)
+```
+
+El test log-rank proporciona un estadístic de $\chi^2 = 4$ (p = 0.046),
+mentre que el LRT del model de Weibull dona un valor de $\chi^2 = 4.159$
+(p = 0.041). Tots dos tests apunten en la mateixa direcció: existeix una
+diferència estadísticament significativa entre homes i dones en el temps
+fins a l'esdeveniment, al nivell de significació del 5%.
+
+La coherència entre ambdós resultats reforça la robustesa de les
+conclusions obtingudes: el gènere és una covariable amb un efecte
+significatiu sobre la supervivència.
+
+# Anàlisi amb variables
+
+## Variable Age
+
+```{r}
+# Gràfic log-log per validar Weibull estratificant per fage
+km.fage <- survfit(surv.whas ~ fage, data = data)
+plot(km.fage, fun = "cloglog",
+     xlab = "Log(Temps en dies)", ylab = "log-log Supervivència",
+     lty = c(1, 3))
+legend("topleft", c("<70", "70+"), lty = c(1, 3))
+title("Corbes log-log per fage")
+```
+
+Malgrat que les corbes log-log **no mostren una linealitat ni un
+paral·lelisme perfectes**, especialment als extrems de la distribució
+temporal, el model de Weibull havia estat seleccionat prèviament com el
+millor model paramètric per a aquestes dades en base a criteris d'AIC i
+al test de versemblança enfront del model exponencial. Per aquest motiu,
+es continua l'anàlisi incorporant les covariables fage i fbmi dins del
+marc del model de Weibull, assumint que les desviacions observades
+gràficament no comprometen de manera rellevant les conclusions del
+model.
+
+Construcció del model incloent les variables **gènere i fage**:
+
+```{r}
+m.weib.age <- survreg(surv.whas ~ gender + fage, dist = "weibull", data = data)
+summary(m.weib.age)
+
+
+m.weib.age$scale
+1 / m.weib.age$scale
+```
+
+El model de **Weibull** ajustat per **gènere** i **edat** mostra que
+**l'edat és un confusor parcial de l'efecte del gènere**. El coeficient
+de fage és significatiu (p = 0.004), indicant que els pacients majors de
+70 anys presenten un temps de supervivència significativament menor. En
+canvi, **el coeficient de gender deixa de ser significatiu (p = 0.280)
+un cop s'ajusta per l'edat**, cosa que suggereix que part de **la
+diferència observada entre homes i dones** en el model simple era
+**deguda a la distribució diferencial de l'edat** entre els dos grups.
+
+El paràmetre d'escala (1/p = 1.32, p \> 1) confirma que **la taxa de
+risc és creixent** al llarg del temps, cosa que valida l'ús del model de
+**Weibull** per sobre de l'exponencial. El test global del model és
+significatiu (p \< 0.001), indicant que el conjunt de variables incloses
+millora l'ajust respecte al model nul.
+
+```{r}
+# LRT vs model amb només gender
+(chisq.age2 <- -2 * (m.weib$loglik[2] - m.weib.age$loglik[2]))
+1 - pchisq(chisq.age2, df = 1)
+```
+
+El test de versemblança entre el model amb només gender i el model que
+incorpora fage és significatiu (estadístic = 9.76, p-valor = 0.002),
+indicant que **afegir l'edat millora significativament l'ajust del
+model**. Per tant, fage és una variable rellevant que contribueix a
+explicar el temps de supervivència més enllà de l'efecte del gènere.
+
+```{r}
+#comparació d'AIC incloent o no fage
+extractAIC(m.weib)
+extractAIC(m.weib.age)
+```
+
+L'AIC del model amb gender i fage (904.58) és inferior al del model amb
+només gender (912.34), confirmant que la inclusió de l'edat millora
+l'ajust del model penalitzant per complexitat. Aquest resultat és
+coherent amb el test de versemblança i reforça la decisió d'incloure
+fage com a covariable.
+
+```{r}
+# FA i HR (gender ajustat per fage)
+exp(m.weib.age$coef[2])
+c(exp(m.weib.age$coef[2] - 1.96 * sqrt(m.weib.age$var[2, 2])),
+  exp(m.weib.age$coef[2] + 1.96 * sqrt(m.weib.age$var[2, 2])))
+
+exp(-m.weib.age$coef[2] / m.weib.age$scale)
+```
+
+**El factor d'acceleració (FA) de les dones respecte dels homes**,
+ajustat per edat, és de 0.66 (IC 95%: 0.31 – 1.41). Com que **l'interval
+de confiança conté l'1**, no podem considerar que l'efecte del gènere
+sigui estadísticament significatiu un cop controlada l'edat, cosa
+coherent amb el p-valor de 0.280 observat al summary del model.
+
+En termes de **hazard ratio (HR)**, les dones presenten un risc
+instantani de mort 1.37 vegades superior al dels homes ajustat per edat,
+tot i que **aquest efecte tampoc és significatiu**. Això indica que
+**l'edat actua com a confusor parcial de la relació entre gènere i
+supervivència**.
+
+```{r}
+# Percentils i gràfic
+patern1 <- data.frame(gender = "Dona", fage = 0)
+pct <- c(.25, .50, .75)
+pattern0 <- data.frame(gender = factor("Home", levels = c("Home", "Dona")), fage = 0)
+pattern1 <- data.frame(gender = factor("Dona", levels = c("Home", "Dona")), fage = 0)
+
+
+pct2     <- 0:100 / 100
+survival <- 1 - pct2
+days0 <- predict(m.weib.age, newdata = pattern0, type = "quantile", p = pct2)
+days1 <- predict(m.weib.age, newdata = pattern1, type = "quantile", p = pct2)
+
+plot(km.gender, xlab = "Temps en dies", ylab = "Supervivència",
+     lty = c(1, 3), col = c("blue", "red"),
+     main = "Weibull (ajustat per fage) vs KM")
+points(days0, survival, pch = 21, col = "blue")
+points(days1, survival, pch = 16, col = "red")
+legend("topright", c("KM Home", "KM Dona", "Weib. Home", "Weib. Dona"),
+       lty = c(1, 3, NA, NA), pch = c(NA, NA, 21, 16),
+       col = c("blue", "red", "blue", "red"), cex = 0.8)
+```
+
+El gràfic mostra que **el model de Weibull ajustat per fage no s'ajusta
+bé a les dades**. Les corbes de Weibull per a homes i dones són
+pràcticament idèntiques i superposades, mentre que les corbes de
+Kaplan-Meier mostren una diferència clara entre els dos grups. Això
+indica que el model, un cop controlada l'edat, no és capaç de capturar
+la diferència de supervivència entre gèneres, cosa coherent amb el FA i
+HR no significatius obtinguts anteriorment. A més, el model sobrestima
+significativament la supervivència de les dones, ja que la corba de
+Weibull se situa molt per sobre de la KM corresponent al llarg de
+gairebé tot el període de seguiment. Aquest resultat indica que cal
+buscar alternatives per tal d'obtenir un model que expliqui millor la
+realitat de les dades.
+
+## Variable IBM
+
+```{r}
+# Gràfic log-log per validar Weibull estratificant per fbmi
+km.fbmi <- survfit(surv.whas ~ fbmi, data = data)
+plot(km.fbmi, fun = "cloglog",
+     xlab = "Log(Temps en dies)", ylab = "log-log Supervivència",
+     lty = c(1, 3))
+legend("topleft", c("Baix", "Alt"), lty = c(1, 3))
+title("Corbes log-log per fbmi")
+```
+
+Les corbes log-log per fbmi mostren un **comportament més proper a la
+linealitat que en el cas de fage**, i s'aprecia un **cert
+paral·lelisme** entre els dos grups al llarg del rang temporal,
+especialment a la part central. Això recolza de manera més clara el
+compliment de les hipòtesis del model de Weibull i de riscos
+proporcionals. S'observa que el grup amb BMI baix presenta una taxa de
+risc superior al grup amb BMI alt, indicant una **millor supervivència
+associada a un índex de massa corporal més elevat**.
+
+El model amb gènere i bmi factor:
+
+```{r}
+m.weib.bmi <- survreg(surv.whas ~ gender + fbmi, dist = "weibull", data = data)
+summary(m.weib.bmi)
+
+m.weib.bmi$scale
+1 / m.weib.bmi$scale
+```
+
+El model de Weibull ajustat per IMC mostra que **ambdues variables són
+significatives**. El coeficient de **fbmi és significatiu** (p =
+0.0015), indicant que els **pacients amb IMC alt presenten un temps de
+supervivència significativament superior**. A diferència del model
+ajustat per edat, el coeficient de **gender continua sent significatiu**
+(p = 0.044) un cop controlat l'IMC, cosa que suggereix que **l'IMC no
+actua com a confusor de la relació entre gènere i supervivència**, sinó
+com una variable independent addicional.
+
+El paràmetre d'escala (1/p = 0.77, p \< 1) indicaria una **taxa de risc
+decreixent**, tot i que el test sobre Log(scale) és significatiu (p =
+0.037), confirmant que p $\neq$ 1 i que el model de Weibull és
+preferible a l'exponencial. El test global del model és significatiu (p
+\< 0.001).
+
+```{r}
+# LRT vs model amb només gender
+(chisq.bmi2 <- -2 * (m.weib$loglik[2] - m.weib.bmi$loglik[2]))
+1 - pchisq(chisq.bmi2, df = 1)
+```
+
+El test de versemblança entre el model amb només gender i el model que
+incorpora fbmi és significatiu (estadístic = 10.46, p-valor = 0.001),
+indicant que afegir l'IMC millora significativament l'ajust del model.
+Per tant, fbmi és una variable rellevant que contribueix a explicar el
+temps de supervivència més enllà de l'efecte del gènere.
+
+```{r}
+# comparació d'AIC incloent o no fbmi
+extractAIC(m.weib)
+extractAIC(m.weib.bmi)
+```
+
+L'AIC del model amb gender i fbmi (903.89) és inferior al del model amb
+només gender (912.34), confirmant que **la inclusió de l'IMC millora
+l'ajust del model** penalitzant per complexitat. Aquest resultat és
+coherent amb el test de versemblança i reforça la decisió d'incloure
+fbmi com a covariable.
+
+```{r}
+# FA i HR (gender ajustat per fbmi)
+exp(m.weib.bmi$coef[2])
+c(exp(m.weib.bmi$coef[2] - 1.96 * sqrt(m.weib.bmi$var[2, 2])),
+  exp(m.weib.bmi$coef[2] + 1.96 * sqrt(m.weib.bmi$var[2, 2])))
+
+exp(-m.weib.bmi$coef[2] / m.weib.bmi$scale)
+```
+
+El **factor d'acceleració (FA) de les dones respecte dels homes**,
+ajustat per IMC, és de 0.47 (IC 95%: 0.23 – 0.98). L'interval de
+confiança **no conté l'1**, confirmant que **l'efecte del gènere és
+estadísticament significatiu un cop controlat l'IMC**. Això significa
+que el temps de supervivència de les dones és 0.47 vegades el dels
+homes, és a dir, **les dones presenten una supervivència inferior**.
+
+En termes de **hazard ratio (HR)**, les **dones** presenten un **risc
+instantani de mort 1.78 vegades superior al dels homes ajustat per
+IMC**, i aquest efecte sí que és significatiu.
+
+```{r}
+pattern0 <- data.frame(gender = factor("Home", levels = c("Home", "Dona")), fbmi = 0)
+pattern1 <- data.frame(gender = factor("Dona", levels = c("Home", "Dona")), fbmi = 0)
+
+pct2     <- 0:100 / 100
+survival <- 1 - pct2
+days0 <- predict(m.weib.bmi, newdata = pattern0, type = "quantile", p = pct2)
+days1 <- predict(m.weib.bmi, newdata = pattern1, type = "quantile", p = pct2)
+
+plot(km.gender, xlab = "Temps en dies", ylab = "Supervivència",
+     lty = c(1, 3), col = c("blue", "red"),
+     main = "Weibull (ajustat per fbmi) vs KM")
+points(days0, survival, pch = 21, col = "blue")
+points(days1, survival, pch = 16, col = "red")
+legend("topright", c("KM Home", "KM Dona", "Weib. Home", "Weib. Dona"),
+       lty = c(1, 3, NA, NA), pch = c(NA, NA, 21, 16),
+       col = c("blue", "red", "blue", "red"), cex = 0.8)
+```
+
+El gràfic mostra que **el model de Weibull ajustat per fbmi captura
+correctament la separació entre homes i dones**, cosa que el model
+ajustat per fage no aconseguia. No obstant, **l'ajust no és
+satisfactori**: el model **infraestima significativament la
+supervivència de ambdós grups** al llarg de pràcticament tot el període
+de seguiment, amb les corbes de Weibull molt per sota de les KM
+corresponents.
+
+Això indica que afegir fbmi i gènere no és suficient per modelar la
+realitat de les dades. Cal buscar altres combinacions de variables o
+afegir interaccions.
+
+## Conjuntament
+
+Construïm el model que inclou totes 3 variables: **gènere**, **edat** i
+**ibm**.
+
+Tindrem en compte **l'efecte d'interacció** entre les variables,
+escollint el model amb millor AIC.
+
+```{r}
+# Selecció del millor model per AIC
+step(survreg(surv.whas ~ gender + fage + fbmi +
+             gender:fage + gender:fbmi + fage:fbmi,
+             dist = "weibull", data = data))
+```
+
+El model seleccionat per step() és **gender + fage + fbmi +
+gender:fage.**
+
+Això vol dir que el **millor balanç** entre **ajust** a les dades i
+**complexitat** del model inclou una **interacció significativa** entre
+**gènere i edat**. En canvi, l'efecte de l'IBM no varia independentment
+del gènere o l'edat.
+
+Construïm el model:
+
+```{r}
+# Model final seleccionat per step
+m.weib.full <- survreg(surv.whas ~ gender + fage + fbmi + gender:fage,
+                        dist = "weibull", data = data)
+summary(m.weib.full)
+
+m.weib.full$scale
+1 / m.weib.full$scale
+```
+
+El model final seleccionat inclou **gender, fage, fbmi i la interacció
+gender:fage**, i **tots els coeficients són significatius**. La
+presència de la interacció indica que **l'efecte del gènere sobre la
+supervivència depèn de l'edat del pacient**, de manera que **no es pot
+interpretar l'efecte de gender de forma aïllada sense tenir en compte
+fage**.
+
+El coeficient de **gender (-1.888)** representa l'efecte del gènere
+**per als pacients menors de 70 anys (fage = 0)**, mentre que el terme
+**d'interacció gender:fage (2.127)** indica que aquest **efecte
+s'atenua** substancialment — i fins i tot **s'inverteix** — en els
+**pacients majors de 70 anys**. El paràmetre fbmi continua sent
+significatiu (p = 0.001), confirmant que **un IMC alt s'associa a una
+major supervivència** independentment del gènere i l'edat. El test
+global del model és altament significatiu (p \< 0.001) i l'escala (1/p =
+0.80) indica una taxa de risc lleugerament decreixent.
+
+```{r}
+# LRT vs model amb només gender
+(chisq.full2 <- -2 * (m.weib$loglik[2] - m.weib.full$loglik[2]))
+1 - pchisq(chisq.full2, df = 3)
+```
+
+El **test de versemblança** entre el model amb **només gender** i el
+**model final** és altament significatiu (estadístic = 24.11, p-valor \<
+0.001), confirmant que la inclusió conjunta de fage, fbmi i la
+interacció gender:fage millora de manera molt substancial l'ajust del
+model respecte a considerar únicament el gènere.
+
+```{r}
+extractAIC(m.weib)
+extractAIC(m.weib.full)
+```
+
+**L'AIC** del **model final** (894.23) és **considerablement inferior**
+al del model amb **només gender** (912.34), amb una diferència de
+gairebé 18 punts. Això confirma que la inclusió de fage, fbmi i la
+interacció gender:fage millora substancialment l'ajust del model,
+justificant la major complexitat dels 3 paràmetres addicionals.
+
+```{r}
+# FA i HR per gender (homes, fage=0)
+exp(m.weib.full$coef["gender"])
+c(exp(m.weib.full$coef["gender"] - 1.96 * sqrt(m.weib.full$var["gender", "gender"])),
+  exp(m.weib.full$coef["gender"] + 1.96 * sqrt(m.weib.full$var["gender", "gender"])))
+
+exp(-m.weib.full$coef["gender"] / m.weib.full$scale)
+```
+
+Per als **pacients menors de 70 anys** (fage = 0), el **factor
+d'acceleració de les dones respecte dels homes** és de **0.15** (IC 95%:
+0.04 – 0.57), és a dir, el **temps de supervivència de les dones joves
+és només 0.15 vegades el dels homes joves**. L'interval de confiança no
+conté l'1, confirmant que aquest efecte és estadísticament significatiu.
+
+En termes de **HR**, les **dones menors de 70 anys** presenten un **risc
+instantani de mort 4.54 vegades superior al dels homes** del mateix grup
+d'edat. Això indica que, entre els pacients joves, el gènere femení és
+un factor de risc important per a la supervivència després d'un infart
+agut de miocardi.
+
+```{r}
+# FA estratificat per gènere
+# Tractament per homes (gender=1, fage=0 vs gender=0, fage=0)
+est.home <- m.weib.full$coef["gender"] + m.weib.full$coef["gender:fage"] * 0
+exp(est.home)
+
+# Tractament per dones grans (gender=1, fage=1 vs gender=0, fage=1)
+est.fage1 <- m.weib.full$coef["gender"] + m.weib.full$coef["gender:fage"] * 1
+exp(est.fage1)
+var.fage1 <- m.weib.full$var["gender", "gender"] +
+             m.weib.full$var["gender:fage", "gender:fage"] +
+             2 * m.weib.full$var["gender", "gender:fage"]
+exp(c(est.fage1 - 1.96 * sqrt(var.fage1),
+      est.fage1 + 1.96 * sqrt(var.fage1)))
+```
+
+Els resultats confirmen **l'efecte diferencial del gènere segons
+l'edat**. Per als pacients menors de 70 anys (fage = 0), el FA és de
+0.15, indicant que les dones joves presenten una supervivència molt
+inferior a la dels homes joves, tal com s'ha comentat anteriorment.
+
+En canvi, per als **pacients majors de 70 anys** (fage = 1), el **FA de
+les dones respecte dels homes és de 1.27** (IC 95%: 0.55 – 2.94). Com
+que **l'interval de confiança conté l'1**, no podem considerar que hi
+hagi diferències significatives en la supervivència entre homes i dones
+d'edat avançada. Això indica que **el tractament diferencial del gènere
+sobre la supervivència només és rellevant en el grup de pacients més
+joves, mentre que en els pacients majors de 70 anys l'efecte del gènere
+desapareix.**
+
+```{r}
+pattern0 <- data.frame(gender = factor("Home", levels = c("Home", "Dona")), fage = 0, fbmi = 0)
+pattern1 <- data.frame(gender = factor("Dona", levels = c("Home", "Dona")), fage = 0, fbmi = 0)
+
+pct2     <- 0:100 / 100
+survival <- 1 - pct2
+days0 <- predict(m.weib.full, newdata = pattern0, type = "quantile", p = pct2)
+days1 <- predict(m.weib.full, newdata = pattern1, type = "quantile", p = pct2)
+
+plot(km.gender, xlab = "Temps en dies", ylab = "Supervivència",
+     lty = c(1, 3), col = c("blue", "red"),
+     main = "Weibull (model final) vs KM")
+points(days0, survival, pch = 21, col = "blue")
+points(days1, survival, pch = 16, col = "red")
+legend("topright", c("KM Home", "KM Dona", "Weib. Home", "Weib. Dona"),
+       lty = c(1, 3, NA, NA), pch = c(NA, NA, 21, 16),
+       col = c("blue", "red", "blue", "red"), cex = 0.8)
+```
+
+El gràfic mostra que el **model final de Weibull** només s'ajusta
+adequadament per als homes, seguint de prop la corba de Kaplan-Meier
+corresponent al llarg de tot el període de seguiment. Per a les dones,
+en canvi, el model infraestima considerablement la supervivència, amb la
+corba de Weibull molt per sota de la KM al llarg de pràcticament tot el
+seguiment. Aquesta discrepància és conseqüència de la interacció
+gender:fage: els patrons de predicció estan fixats a fage = 0, de manera
+que el model reflecteix el comportament de les dones joves, que
+presenten una supervivència molt inferior. Per obtenir una representació
+més fidel caldria graficar les corbes per a cada combinació de gender i
+fage per separat.
+
+Observem els gràfics per separat:
+
+```{r, echo=FALSE}
+par(mfrow = c(1, 2))
+
+# Home <70 vs Dona <70
+pattern0 <- data.frame(gender = factor("Home", levels = c("Home", "Dona")), fage = 0, fbmi = 0)
+pattern1 <- data.frame(gender = factor("Dona", levels = c("Home", "Dona")), fage = 0, fbmi = 0)
+
+days0 <- predict(m.weib.full, newdata = pattern0, type = "quantile", p = pct2)
+days1 <- predict(m.weib.full, newdata = pattern1, type = "quantile", p = pct2)
+
+plot(days0, survival, xlab = "Temps en dies", ylab = "Supervivència",
+     main = "Supervivència per gènere (fage = 0)", xlim = c(0, 3000))
+points(days1, survival, pch = 16)
+legend("topright", c("Home <70", "Dona <70"), pch = c(21, 16))
+
+# Home 70+ vs Dona 70+
+pattern0 <- data.frame(gender = factor("Home", levels = c("Home", "Dona")), fage = 1, fbmi = 0)
+pattern1 <- data.frame(gender = factor("Dona", levels = c("Home", "Dona")), fage = 1, fbmi = 0)
+
+days0 <- predict(m.weib.full, newdata = pattern0, type = "quantile", p = pct2)
+days1 <- predict(m.weib.full, newdata = pattern1, type = "quantile", p = pct2)
+
+plot(days0, survival, xlab = "Temps en dies", ylab = "Supervivència",
+     main = "Supervivència per gènere (fage = 1)", xlim = c(0, 3000))
+points(days1, survival, pch = 16)
+legend("topright", c("Home 70+", "Dona 70+"), pch = c(21, 16))
+
+par(mfrow = c(1, 1))
+```
+
+Els dos gràfics mostren les **prediccions del model final** de Weibull
+per a les **quatre combinacions de gènere i edat**, **fixant fbmi = 0**.
+En el gràfic de l'esquerra (fage = 0, menors de 70 anys), s'aprecia una
+**diferència molt pronunciada entre homes i dones**: els **homes**
+presenten una **supervivència notablement superior**, amb una corba que
+decau molt més lentament. Això és coherent amb el **FA de 0.15**
+obtingut anteriorment, confirmant que entre els **pacients joves** el
+**gènere femení** és un **factor de risc** molt rellevant.
+
+En el gràfic de la dreta (fage = 1, majors de 70 anys), **les dues
+corbes són pràcticament superposades**, indicant que **la diferència de
+supervivència entre homes i dones desapareix completament en el grup de
+major edat**. Això és coherent amb el **FA de 1.27 (IC 95%: 0.55 -
+2.94)** obtingut anteriorment, que **no era estadísticament
+significatiu**. Per tant, **la interacció gender:fage captura de manera
+precisa aquest comportament diferencial: el gènere només és un factor
+determinant de la supervivència en els pacients més joves.**
+
+## Model escollit
+
+```{r}
+taula <- data.frame(
+  Model     = c("Només gender", "gender + fage", "gender + fbmi",
+                "gender + fage + fbmi", "gender + fage + fbmi + gender:fage"),
+  AIC       = round(c(extractAIC(m.weib)[2],
+                      extractAIC(m.weib.age)[2],
+                      extractAIC(m.weib.bmi)[2],
+                      extractAIC(survreg(surv.whas ~ gender + fage + fbmi,
+                                         dist = "weibull", data = data))[2],
+                      extractAIC(m.weib.full)[2]), 2),
+  FA_gender = round(c(exp(m.weib$coef[2]),
+                      exp(m.weib.age$coef[2]),
+                      exp(m.weib.bmi$coef[2]),
+                      exp(survreg(surv.whas ~ gender + fage + fbmi,
+                                   dist = "weibull", data = data)$coef[2]),
+                      exp(m.weib.full$coef["gender"])), 3),
+  HR_gender = round(c(exp(-m.weib$coef[2]  / m.weib$scale),
+                      exp(-m.weib.age$coef[2]  / m.weib.age$scale),
+                      exp(-m.weib.bmi$coef[2]  / m.weib.bmi$scale),
+                      exp(-survreg(surv.whas ~ gender + fage + fbmi,
+                                    dist = "weibull", data = data)$coef[2] /
+                          survreg(surv.whas ~ gender + fage + fbmi,
+                                   dist = "weibull", data = data)$scale),
+                      exp(-m.weib.full$coef["gender"] / m.weib.full$scale)), 3)
+)
+kable(taula, caption = "Comparació de models Weibull segons covariables incloses")
+```
+
+La taula resum mostra com **l'AIC millora progressivament a mesura que
+s'incorporen covariables al model**. Els models amb fage o fbmi
+individualment ja suposen una millora respecte al model amb només
+gender, i el model complet sense interacció (AIC = 898.99) millora
+encara més. No obstant, el salt més important es produeix en el **model
+final** (AIC = 894.23), que **incorpora la interacció gender:fage**.
+
+Aquest canvi brusc en el **FA**, que passa de valors al voltant de
+**0.47–0.70** en els models anteriors a **0.15** en el model final, no
+indica que l'efecte del gènere sigui més extrem, sinó que reflecteix que
+**l'efecte del gènere depèn de l'edat**. En els models sense interacció,
+el coeficient de gender representa un efecte mitjà per a tots els
+pacients independentment de l'edat, amaguant el fet que l'efecte és molt
+diferent entre els menors i els majors de 70 anys. Un cop s'introdueix
+la interacció, el coeficient de gender passa a representar exclusivament
+l'efecte en els pacients menors de 70 anys, que és on la diferència
+entre homes i dones és realment pronunciada i significativa. Per tant,
+**la interacció gender:fage era clau per entendre correctament la
+relació entre gènere i supervivència en aquesta població.**
+
+Això es pot observar al gràfic ja mostrat anteriorment que il·lustra
+perfectament **l'efecte interacció entre gènere i edat**:
+
+```{r}
+par(mfrow = c(1, 2))
+
+# Home <70 vs Dona <70
+pattern0 <- data.frame(gender = factor("Home", levels = c("Home", "Dona")), fage = 0, fbmi = 0)
+pattern1 <- data.frame(gender = factor("Dona", levels = c("Home", "Dona")), fage = 0, fbmi = 0)
+
+days0 <- predict(m.weib.full, newdata = pattern0, type = "quantile", p = pct2)
+days1 <- predict(m.weib.full, newdata = pattern1, type = "quantile", p = pct2)
+
+plot(days0, survival, xlab = "Temps en dies", ylab = "Supervivència",
+     main = "Supervivència per gènere (fage = 0)", xlim = c(0, 3000))
+points(days1, survival, pch = 16)
+legend("topright", c("Home <70", "Dona <70"), pch = c(21, 16))
+
+# Home 70+ vs Dona 70+
+pattern0 <- data.frame(gender = factor("Home", levels = c("Home", "Dona")), fage = 1, fbmi = 0)
+pattern1 <- data.frame(gender = factor("Dona", levels = c("Home", "Dona")), fage = 1, fbmi = 0)
+
+days0 <- predict(m.weib.full, newdata = pattern0, type = "quantile", p = pct2)
+days1 <- predict(m.weib.full, newdata = pattern1, type = "quantile", p = pct2)
+
+plot(days0, survival, xlab = "Temps en dies", ylab = "Supervivència",
+     main = "Supervivència per gènere (fage = 1)", xlim = c(0, 3000))
+points(days1, survival, pch = 16)
+legend("topright", c("Home 70+", "Dona 70+"), pch = c(21, 16))
+
+par(mfrow = c(1, 1))
+```
+
+## Factors d’acceleració del millor model
+
+```{r}
+# FA individuals i IC 95%
+
+# gender (fage = 0)
+exp(m.weib.full$coef["gender"])
+c(exp(m.weib.full$coef["gender"] - 1.96 * sqrt(m.weib.full$var["gender", "gender"])),
+  exp(m.weib.full$coef["gender"] + 1.96 * sqrt(m.weib.full$var["gender", "gender"])))
+
+# fage
+exp(m.weib.full$coef["fage"])
+c(exp(m.weib.full$coef["fage"] - 1.96 * sqrt(m.weib.full$var["fage", "fage"])),
+  exp(m.weib.full$coef["fage"] + 1.96 * sqrt(m.weib.full$var["fage", "fage"])))
+
+# fbmi
+exp(m.weib.full$coef["fbmi"])
+c(exp(m.weib.full$coef["fbmi"] - 1.96 * sqrt(m.weib.full$var["fbmi", "fbmi"])),
+  exp(m.weib.full$coef["fbmi"] + 1.96 * sqrt(m.weib.full$var["fbmi", "fbmi"])))
+```
+
+Els **factors d'acceleració individuals** mostren l'efecte de cada
+variable sobre el temps de supervivència mantenint la resta constant:
+
+-   **Gender (per a pacients menors de 70 anys, fage = 0)**: el FA és de
+    0.15 (IC 95%: 0.04 – 0.57), indicant que les dones joves presenten
+    un temps de supervivència significativament inferior al dels homes
+    joves. L'interval no conté l'1, confirmant la significació
+    estadística.
+
+-   **Fage**: el FA és de 0.17 (IC 95%: 0.06 – 0.49), indicant que els
+    pacients majors de 70 anys presenten un temps de supervivència que
+    és només 0.17 vegades el dels pacients menors de 70 anys, és a dir,
+    una supervivència molt inferior. L'efecte és estadísticament
+    significatiu.
+
+-   **Fbmi**: el FA és de 3.54 (IC 95%: 1.63 – 7.66), indicant que els
+    pacients amb IMC alt presenten un temps de supervivència 3.54
+    vegades superior al dels pacients amb IMC baix. És la variable amb
+    l'efecte protector més pronunciat i estadísticament significatiu del
+    model.
+
+```{r}
+# FA conjunts i IC 95%
+
+# Dona vs Home, fage = 0 (ja calculat, FA = exp(alpha_gender))
+est.dona.jove <- m.weib.full$coef["gender"]
+exp(est.dona.jove)
+var.dona.jove <- m.weib.full$var["gender", "gender"]
+exp(c(est.dona.jove - 1.96 * sqrt(var.dona.jove),
+      est.dona.jove + 1.96 * sqrt(var.dona.jove)))
+
+# Dona vs Home, fage = 1 (FA = exp(alpha_gender + alpha_gender:fage))
+est.dona.gran <- m.weib.full$coef["gender"] + m.weib.full$coef["gender:fage"]
+exp(est.dona.gran)
+var.dona.gran <- m.weib.full$var["gender", "gender"] +
+                 m.weib.full$var["gender:fage", "gender:fage"] +
+                 2 * m.weib.full$var["gender", "gender:fage"]
+exp(c(est.dona.gran - 1.96 * sqrt(var.dona.gran),
+      est.dona.gran + 1.96 * sqrt(var.dona.gran)))
+
+# fage = 1 i fbmi = 1 vs fage = 0 i fbmi = 0 (FA = exp(alpha_fage + alpha_fbmi))
+est.conjunt <- m.weib.full$coef["fage"] + m.weib.full$coef["fbmi"]
+exp(est.conjunt)
+var.conjunt <- m.weib.full$var["fage", "fage"] +
+               m.weib.full$var["fbmi", "fbmi"] +
+               2 * m.weib.full$var["fage", "fbmi"]
+exp(c(est.conjunt - 1.96 * sqrt(var.conjunt),
+      est.conjunt + 1.96 * sqrt(var.conjunt)))
+```
+
+Els **factors d'acceleració conjunts** permeten comparar combinacions de
+categories entre si:
+
+-   **Dona vs Home, menors de 70 anys (fage = 0)**: FA = 0.15 (IC 95%:
+    0.04 – 0.57). Les dones joves presenten una supervivència
+    significativament inferior als homes joves, amb un efecte
+    estadísticament significatiu ja que l'interval no conté l'1.
+
+-   **Dona vs Home, majors de 70 anys (fage = 1)**: FA = 1.27 (IC 95%:
+    0.55 – 2.94). Entre els pacients majors de 70 anys, les dones
+    presenten un temps de supervivència lleugerament superior al dels
+    homes, però l'interval conté l'1 i per tant l'efecte no és
+    estadísticament significatiu. Això confirma que la diferència de
+    supervivència entre gèneres desapareix en el grup de major edat.
+
+-   **Pacients majors de 70 anys amb IMC alt vs menors de 70 anys amb
+    IMC baix (fage = 1, fbmi = 1 vs fage = 0, fbmi = 0)**: FA = 0.60 (IC
+    95%: 0.17 – 2.08). L'efecte combinat de l'edat avançada i l'IMC alt
+    resulta en un FA proper a 1 i amb un interval que conté l'1,
+    indicant que els efectes contraris de les dues variables — l'edat
+    redueix la supervivència mentre que l'IMC alt l'augmenta — es
+    compensen parcialment, sense que la diferència global sigui
+    estadísticament significativa.
+
+# Hazard Ratios
+
+Donat que el model final seleccionat és un model de **Weibull**, també
+pot interpretar-se en termes de **hazard ratios (HR)**, ja que aquesta
+distribució compleix la hipòtesi de **riscos proporcionals (PH)**.
+
+En un model Weibull ajustat amb `survreg`, si $\alpha_j$ és el
+coeficient associat a una covariariable i `scale` és el paràmetre
+d'escala del model, el **hazard ratio** corresponent ve donat per:
+
+$$
+HR_j = \exp\left(-\frac{\alpha_j}{\text{scale}}\right)
+$$
+
+Per tant, un valor de $HR > 1$ indica un augment de la **taxa de fallida
+instantània**, mentre que un valor de $HR < 1$ indica una reducció del
+risc respecte al grup de referència.
+
+En aquest cas, com que el model final inclou la interacció
+**gender:fage**, l'efecte del gènere sobre la taxa de fallida
+instantània depèn de l'edat del pacient, per la qual cosa les HR s'han
+d'interpretar de forma estratificada.
+
+## HR individuals i intervals de confiança
+
+```{r}
+# HR individuals a partir del model final
+# Weibull amb survreg: HR = exp(-beta / scale)
+
+sc <- m.weib.full$scale
+coef.full <- coef(m.weib.full)
+var.full  <- m.weib.full$var
+
+# -----------------------------
+# HR INDIVIDUALS
+# -----------------------------
+
+# fbmi (efecte principal)
+HR.fbmi <- exp(-coef.full["fbmi"] / sc)
+IC.HR.fbmi <- c(
+  exp(-(coef.full["fbmi"] + 1.96 * sqrt(var.full["fbmi","fbmi"])) / sc),
+  exp(-(coef.full["fbmi"] - 1.96 * sqrt(var.full["fbmi","fbmi"])) / sc)
+)
+
+# gender en menors de 70 anys
+HR.gender.young <- exp(-coef.full["gender"] / sc)
+IC.HR.gender.young <- c(
+  exp(-(coef.full["gender"] + 1.96 * sqrt(var.full["gender","gender"])) / sc),
+  exp(-(coef.full["gender"] - 1.96 * sqrt(var.full["gender","gender"])) / sc)
+)
+
+# gender en majors de 70 anys
+beta.gender.old <- coef.full["gender"] + coef.full["gender:fage"]
+var.gender.old  <- var.full["gender","gender"] +
+                   var.full["gender:fage","gender:fage"] +
+                   2 * var.full["gender","gender:fage"]
+
+HR.gender.old <- exp(-beta.gender.old / sc)
+IC.HR.gender.old <- c(
+  exp(-(beta.gender.old + 1.96 * sqrt(var.gender.old)) / sc),
+  exp(-(beta.gender.old - 1.96 * sqrt(var.gender.old)) / sc)
+)
+
+# efecte de fage en homes
+HR.fage.men <- exp(-coef.full["fage"] / sc)
+IC.HR.fage.men <- c(
+  exp(-(coef.full["fage"] + 1.96 * sqrt(var.full["fage","fage"])) / sc),
+  exp(-(coef.full["fage"] - 1.96 * sqrt(var.full["fage","fage"])) / sc)
+)
+
+# efecte de fage en dones
+beta.fage.women <- coef.full["fage"] + coef.full["gender:fage"]
+var.fage.women  <- var.full["fage","fage"] +
+                   var.full["gender:fage","gender:fage"] +
+                   2 * var.full["fage","gender:fage"]
+
+HR.fage.women <- exp(-beta.fage.women / sc)
+IC.HR.fage.women <- c(
+  exp(-(beta.fage.women + 1.96 * sqrt(var.fage.women)) / sc),
+  exp(-(beta.fage.women - 1.96 * sqrt(var.fage.women)) / sc)
+)
+
+tabla.HR.ind <- data.frame(
+  Comparacio = c(
+    "Dona vs Home (menors de 70 anys)",
+    "Dona vs Home (majors de 70 anys)",
+    "70+ vs 70- (en homes)",
+    "70+ vs 70- (en dones)",
+    "IMC Alt vs IMC Baix"
+  ),
+  HR = c(HR.gender.young, HR.gender.old, HR.fage.men, HR.fage.women, HR.fbmi),
+  IC95_inf = c(IC.HR.gender.young[1], IC.HR.gender.old[1],
+               IC.HR.fage.men[1], IC.HR.fage.women[1], IC.HR.fbmi[1]),
+  IC95_sup = c(IC.HR.gender.young[2], IC.HR.gender.old[2],
+               IC.HR.fage.men[2], IC.HR.fage.women[2], IC.HR.fbmi[2])
+)
+
+tabla.HR.ind[, -1] <- round(tabla.HR.ind[, -1], 4)
+kable(tabla.HR.ind,
+      caption = "Hazard ratios individuals del model final")
+```
+
+La taula anterior mostra les **hazard ratios individuals** obtingudes a
+partir del model final de Weibull amb interacció entre gènere i edat.
+
+En primer lloc, l'efecte del **gènere** s'ha d'interpretar de manera
+diferent segons l'edat del pacient. En els **menors de 70 anys**, el
+contrast **dona vs home** presenta una **HR = 4.5434** (IC 95%: 1.5632 –
+13.2057), la qual cosa indica que les dones menors de 70 anys presenten
+una **taxa de fallida instantània aproximadament 4.5 vegades superior**
+a la dels homes del mateix grup d'edat. Atès que l'interval de confiança
+no conté el valor 1, aquesta diferència és estadísticament
+significativa.
+
+En canvi, en els **majors de 70 anys**, el contrast **dona vs home**
+presenta una **HR = 0.8256** (IC 95%: 0.4212 – 1.6183). Tot i que
+l'estimació puntual és inferior a 1, l'interval de confiança inclou
+aquest valor, per la qual cosa **no es pot afirmar que existeixin
+diferències significatives en la taxa de fallida instantània entre dones
+i homes** dins d'aquest grup d'edat. Això confirma que l'efecte del
+gènere observat en els pacients més joves s'atenua i deixa de ser
+significatiu en edats avançades.
+
+Respecte a l'efecte de l'**edat**, entre els **homes** el contrast **70+
+vs 70-** presenta una **HR = 4.1279** (IC 95%: 1.7800 – 9.5725), la qual
+cosa indica que els homes de 70 anys o més tenen una **taxa de fallida
+instantània més de quatre vegades superior** a la dels homes menors de
+70 anys. Aquesta diferència és estadísticament significativa.
+
+No obstant això, entre les **dones** el contrast **70+ vs 70-** presenta
+una **HR = 0.7501** (IC 95%: 0.2861 – 1.9669). En aquest cas, l'interval
+de confiança inclou el valor 1, de manera que **no s'observa un efecte
+estadísticament significatiu de l'edat** dins del grup de dones. Aquest
+resultat torna a posar de manifest que l'efecte de l'edat no és homogeni
+entre tots dos sexes, la qual cosa és coherent amb la interacció
+incorporada en el model.
+
+Finalment, el contrast **IMC Alt vs IMC Baix** presenta una **HR =
+0.3634** (IC 95%: 0.1956 – 0.6752), la qual cosa indica que els pacients
+amb IMC alt presenten una **reducció significativa de la taxa de fallida
+instantània** respecte als pacients amb IMC baix. En termes pràctics, un
+IMC alt s'associa amb un risc instantani aproximadament un 63.7% menor
+que el d'un IMC baix.
+
+En conjunt, els resultats mostren que el **gènere i l'edat no poden
+interpretar-se per separat,** ja que el seu efecte sobre la
+supervivència depèn de la combinació d'ambdues variables. A més, l'IMC
+alt apareix com un factor associat a una menor taxa de fallida
+instantània en el model final.
+
+## HR conjunts i intervals de confiança
+
+```{r}
+# -----------------------------
+# HR CONJUNTS
+# -----------------------------
+# Es comparen diferents perfils complets respecte al grup de referència:
+# Home, menor de 70 anys, IMC baix
+
+hr_conjunto <- function(x1, x0, model) {
+  X1 <- model.matrix(delete.response(terms(model)), x1)
+  X0 <- model.matrix(delete.response(terms(model)), x0)
+  
+  beta <- coef(model)
+  V <- model$var[1:length(beta), 1:length(beta)]
+  sc <- model$scale
+  
+  d <- as.numeric(X1 - X0)
+  eta <- as.numeric(d %*% beta)
+  se <- sqrt(as.numeric(d %*% V %*% d))
+  
+  HR <- exp(-eta / sc)
+  IC <- c(
+    exp(-(eta + 1.96 * se) / sc),
+    exp(-(eta - 1.96 * se) / sc)
+  )
+  
+  return(c(HR = HR, IC95_inf = IC[1], IC95_sup = IC[2]))
+}
+
+ref <- data.frame(gender = 0, fage = 0, fbmi = 0)
+
+perfil1 <- data.frame(gender = 1, fage = 0, fbmi = 0)
+perfil2 <- data.frame(gender = 0, fage = 1, fbmi = 0)
+perfil3 <- data.frame(gender = 1, fage = 1, fbmi = 0)
+perfil4 <- data.frame(gender = 0, fage = 0, fbmi = 1)
+perfil5 <- data.frame(gender = 1, fage = 1, fbmi = 1)
+
+HR1 <- hr_conjunto(perfil1, ref, m.weib.full)
+HR2 <- hr_conjunto(perfil2, ref, m.weib.full)
+HR3 <- hr_conjunto(perfil3, ref, m.weib.full)
+HR4 <- hr_conjunto(perfil4, ref, m.weib.full)
+HR5 <- hr_conjunto(perfil5, ref, m.weib.full)
+
+tabla.HR.conj <- data.frame(
+  Comparacio = c(
+    "Dona, 70-, IMC baix vs Home, 70-, IMC baix",
+    "Home, 70+, IMC baix vs Home, 70-, IMC baix",
+    "Dona, 70+, IMC baix vs Home, 70-, IMC baix",
+    "Home, 70-, IMC alt vs Home, 70-, IMC baix",
+    "Dona, 70+, IMC alt vs Home, 70-, IMC baix"
+  ),
+  HR = c(HR1["HR"], HR2["HR"], HR3["HR"], HR4["HR"], HR5["HR"]),
+  IC95_inf = c(HR1["IC95_inf"], HR2["IC95_inf"], HR3["IC95_inf"], HR4["IC95_inf"], HR5["IC95_inf"]),
+  IC95_sup = c(HR1["IC95_sup"], HR2["IC95_sup"], HR3["IC95_sup"], HR4["IC95_sup"], HR5["IC95_sup"])
+)
+
+tabla.HR.conj[, -1] <- round(tabla.HR.conj[, -1], 4)
+kable(tabla.HR.conj,
+      caption = "Hazard ratios conjunts del model final")
+```
+
+Les **hazard ratios conjuntes** permeten comparar perfils complets de
+pacients respecte al grup de referència, definit com **home, menor de 70
+anys i amb IMC baix**.
+
+Els resultats mostren que el perfil **dona, menor de 70 anys i amb IMC
+baix** presenta una **HR = 4.5434** (IC 95%: 1.5632 – 13.2057) respecte
+al grup de referència. Això indica que les dones menors de 70 anys amb
+IMC baix presenten una **taxa de fallida instantània aproximadament 4.5
+vegades superior a la dels homes menors de 70 anys amb IMC baix**. Atès
+que l'interval de confiança no conté el valor 1, aquesta diferència és
+estadísticament significativa.
+
+D'altra banda, el perfil **home, major de 70 anys i amb IMC baix**
+presenta una **HR = 4.1279** (IC 95%: 1.7800 – 9.5725), la qual cosa
+indica que l'edat avançada s'associa amb un increment molt important del
+risc instantani fins i tot mantenint constants el gènere i l'IMC. També
+en aquest cas la diferència és estadísticament significativa.
+
+En el cas del perfil **dona, major de 70 anys i amb IMC baix**, s'obté
+una **HR = 3.4080** (IC 95%: 1.4404 – 8.0633). Tot i que aquest perfil
+també presenta una taxa de fallida instantània clarament superior a la
+del grup de referència, el valor és inferior a l'observat per separat
+per a les dones joves i per als homes majors de 70. Això és coherent amb
+la interacció entre gènere i edat, ja que l'efecte advers del gènere
+femení observat en edats joves s'atenua en els pacients de més edat.
+
+En canvi, el perfil **home, menor de 70 anys i amb IMC alt** presenta
+una **HR = 0.3634** (IC 95%: 0.1956 – 0.6752), la qual cosa indica una
+**reducció significativa del risc instantani** respecte al grup de
+referència. En termes pràctics, els homes joves amb IMC alt presenten
+una taxa de fallida instantània aproximadament un 63.7% menor que la
+dels homes joves amb IMC baix.
+
+Finalment, el perfil **dona, major de 70 anys i amb IMC alt** presenta
+una **HR = 1.2384** (IC 95%: 0.4239 – 3.6179). Tot i que l'estimació
+puntual és superior a 1, l'interval de confiança inclou aquest valor,
+per la qual cosa **no pot afirmar-se que aquest perfil difereixi
+significativament del grup de referència**. Això suggereix que, en
+aquest cas, l'efecte perjudicial de l'edat i del gènere queda
+parcialment compensat per l'efecte protector associat a un IMC alt.
+
+En conjunt, aquests resultats confirmen que la interpretació del model
+final no pot fer-se considerant cada variable per separat, sinó que cal
+tenir en compte la **combinació entre gènere, edat i índex de massa
+corporal**. A més a més, reforcen la idea que la interacció entre gènere
+i edat és essencial per descriure correctament la supervivència en
+aquests pacients.
+
+# Comparació Model simple vs Model final
+
+```{r}
+# -----------------------------
+# COMPARACIÓ AMB EL MODEL SIMPLE
+# -----------------------------
+# Model simple amb només gender
+HR.simple <- exp(-m.weib$coef["gender"] / m.weib$scale)
+IC.HR.simple <- c(
+  exp(-(m.weib$coef["gender"] + 1.96 * sqrt(m.weib$var["gender","gender"])) / m.weib$scale),
+  exp(-(m.weib$coef["gender"] - 1.96 * sqrt(m.weib$var["gender","gender"])) / m.weib$scale)
+)
+
+comparacion.HR <- data.frame(
+  Model = c(
+    "Model simple (només gender)",
+    "Model final: Dona vs Home (70-)",
+    "Model final: Dona vs Home (70+)"
+  ),
+  HR = c(HR.simple, HR.gender.young, HR.gender.old),
+  IC95_inf = c(IC.HR.simple[1], IC.HR.gender.young[1], IC.HR.gender.old[1]),
+  IC95_sup = c(IC.HR.simple[2], IC.HR.gender.young[2], IC.HR.gender.old[2])
+)
+
+comparacion.HR[, -1] <- round(comparacion.HR[, -1], 4)
+kable(comparacion.HR,
+      caption = "Comparació de HR entre el model simple i el model final")
+```
+
+La comparació entre el model simple i el model final mostra que la HR
+obtinguda inicialment, en considerar únicament el **gènere**, resumia en
+un sol valor una relació que en realitat **depèn de l'edat del
+pacient**.
+
+En el **model simple**, el contrast **dona vs home** presenta una **HR =
+1.7925** (IC 95%: 1.0172 – 3.1586), la qual cosa indica que, sense
+ajustar per altres covariables, **les dones presenten una taxa de
+fallida instantània aproximadament 1.8 vegades superior a la dels
+homes**. Atès que l'interval de confiança no conté el valor 1, aquesta
+diferència és estadísticament significativa.
+
+No obstant això, al incorporar **l'edat, l'IMC i la interacció
+gender:fage** en el **model final**, s'observa que aquest efecte no és
+homogeni en tota la mostra. En els **pacients menors de 70 anys**, el
+contrast **dona vs home** passa a una **HR = 4.5434** (IC 95%: 1.5632 –
+13.2057), mostrant que en aquest grup l'efecte del gènere femení és molt
+més intens i clarament significatiu.
+
+En canvi, en els **pacients majors de 70 anys**, el contrast **dona vs
+home** presenta una **HR = 0.8256** (IC 95%: 0.4212 – 1.6183). En aquest
+cas, l'interval de confiança inclou el valor 1, per la qual cosa **no
+pot afirmar-se que existeixin diferències significatives entre dones i
+homes** dins d'aquest grup d'edat.
+
+Per tant, el **model inicial (simple)** oferia una **visió mitjana de
+l'efecte del gènere**, mentre que el **model final** permet identificar
+que aquest **efecte està vinculat a l'edat**. En particular, l'excés de
+risc associat al gènere femení es concentra en els pacients menors de 70
+anys, mentre que en els majors de 70 anys aquest efecte desapareix.
+
+Això reforça la idea que la **interacció entre gènere i edat** cal
+tenir-la en compte per descriure correctament l'evolució de la
+supervivència, i justifica l'elecció del model final enfront del model
+simple.
+
+# Conclusió
+
+A partir de l’anàlisi realitzada a la primera tasca, on vam poder
+estimar i comparar diferents funcions de supervivència, es pot concloure
+que l’estudi permet identificar patrons rellevants en l’evolució dels
+pacients després d’un infart agut de miocardi, tot i les limitacions
+degudes a la mostra. En particular, l’anàlisi per gènere suggereix una
+possible pitjor supervivència en les dones, però l’evidència estadística
+obtinguda és limitada i no permet establir diferències concloents, en
+part a causa del desequilibri en la mida dels grups i de la variabilitat
+associada. En canvi, l’edat es confirma com un factor clarament
+determinant, amb una supervivència significativament inferior en els
+pacients majors de 70 anys, tant des del punt de vista gràfic com
+mitjançant contrastos estadístics. Així mateix, l’índex de massa
+corporal també mostra una associació important amb la supervivència,
+evidenciant un millor pronòstic en els pacients amb valors més elevats.
+D'altra banda, l’anàlisi estratificada apunta la possible presència
+d’efectes de confusió i interacció, especialment entre el gènere i
+l’edat, fet que posa de manifest la necessitat de considerar
+conjuntament diverses variables per tal d’obtenir una interpretació més
+completa i acurada dels resultats.
+
+En aquest context, i amb l’objectiu d’aprofundir en aquesta anàlisi
+mitjançant un enfocament paramètric, en aquesta segona tasca s’ha
+procedit a ajustar diferents models de supervivència. A partir dels
+resultats obtinguts, pot concloure's que el model paramètric que millor
+descriu la supervivència d'aquests pacients és el **model de Weibull**.
+Davant de les alternatives Exponencial i Log-logístic, Weibull ha sigut
+la que ha presentat el **millor ajust global**, tant per criteris
+quantitatius com per la seva capacitat d'oferir una interpretació
+coherent en termes de **factors d'acceleració** i **hazard ratios**. A
+més a més, el contrast enfront del model exponencial va confirmar que no
+era adequat assumir una taxa de risc constant, la qual cosa reforça
+l'elecció del model de Weibull com a base de l'estudi.
+
+En l'anàlisi inicial amb el **gènere com a únic regressor**, s'ha
+observat que les dones presentaven una supervivència inferior a la dels
+homes. Tant la interpretació en termes de factor d'acceleració com en
+termes de hazard ratio apuntaven en la mateixa direcció, i aquesta
+evidència ha sigut coherent amb els resultats del contrast log-rank i
+del test de raó de versemblança. Per tant, en una primera aproximació,
+el gènere semblava actuar com una covariable pronòstica rellevant en la
+supervivència després d'un infart agut de miocardi.
+
+No obstant això, en incorporar l'**edat** i l'**índex de massa
+corporal** a l'anàlisi, s'ha comprovat que aquesta interpretació inicial
+era incompleta. L'edat actua com a **factor de confusió parcial** de la
+relació entre gènere i supervivència, mentre que l'IMC aporta informació
+pronòstica addicional independent. En particular, l'ajust conjunt mostra
+que un **IMC alt** **s'associa amb una major supervivència**, mentre que
+l'edat avançada tendeix a empitjorar el pronòstic. Això posa de manifest
+que no és suficient considerar únicament el gènere, sinó que cal
+analitzar simultàniament diverses covariables per descriure correctament
+l'evolució de la supervivència.
+
+El resultat més important de l'estudi ha sigut la identificació d'una
+**interacció entre gènere i edat**. El model final seleccionat inclou
+les variables **gender, fage, fbmi** i la interacció **gender:fage**,
+sent el que presenta el millor equilibri entre ajust i complexitat.
+Aquesta interacció mostra que l'efecte del gènere **no és constant** en
+tots els pacients, sinó que depèn del grup d'edat. En els **pacients
+menors de 70 anys**, les dones presenten una supervivència clarament
+inferior i una taxa de fallida instantània molt superior a la dels
+homes. En canvi, en els **pacients majors de 70 anys**, les diferències
+entre homes i dones deixen de ser estadísticament significatives. En
+altres paraules, el gènere només resulta determinant de forma clara en
+els pacients més joves.
+
+L'anàlisi dels **factors d'acceleració** i de les **hazard ratios**,
+tant individuals com conjuntes, confirmen de forma consistent aquesta
+mateixa idea. Els factors d'acceleració mostren que, **entre els
+pacients joves, el temps de supervivència de les dones és
+considerablement menor que el dels homes, mentre que en edats avançades
+aquesta diferència desapareix**. De forma paral·lela, les hazard ratios
+revelen que l'excés de risc associat al gènere femení es concentra en
+els menors de 70 anys, mentre que en els majors de 70 anys el risc de
+dones i homes és comparable. A més, l'efecte protector de l'IMC alt
+apareix de forma consistent en el model final, reduint significativament
+la taxa de fallida instantània.
+
+En conjunt, els resultats permeten afirmar que la supervivència després
+d'un infart agut de miocardi en aquesta mostra està determinada per una
+combinació de factors, i que la relació entre ells no pot resumir-se en
+un únic efecte global del gènere. El model final evidencia que l'edat
+modifica de forma substancial l'associació entre gènere i supervivència,
+i que l'IMC també exerceix un paper rellevant. Per tant, la principal
+conclusió de l'estudi és que **la interacció entre gènere i edat resulta
+essencial per interpretar correctament la supervivència**, i que el
+model de Weibull amb interacció proporciona una descripció molt més
+realista i precisa que els models més simples.
+
+En conseqüència, no seria adequat concloure simplement que "les dones
+presenten pitjor supervivència que els homes" de forma general. Una
+conclusió més precisa és que **les dones menors de 70 anys presenten un
+pronòstic clarament pitjor que els homes del seu mateix grup d'edat,
+mentre que en els pacients majors de 70 anys aquesta diferència
+desapareix**. Aquesta és l'aportació central de l'anàlisi i la raó per
+la qual el model final seleccionat constitueix la millor síntesi de la
+informació continguda en les dades.
