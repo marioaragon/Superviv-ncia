@@ -1,11 +1,25 @@
 ---
-title: 'Tasca 2:  MODELS PARAMÈTRICS DE SUPERVIVÈNCIA'
+title: "Tasca 2: MODELS PARAMÈTRICS DE SUPERVIVÈNCIA"
 author: "Mario Aragón, Laura Belmonte, Lena Lledós, Miguel Rodríguez"
-date: "2026-03-04"
+date: "`r Sys.Date()`"
 output:
   pdf_document: default
   html_document:
     df_print: paged
+header-includes:
+  - \usepackage{xcolor}
+  - \usepackage{graphicx}
+  - \usepackage{titling}
+  - \usepackage{fancyhdr}
+  - \pretitle{\begin{center}\vspace{-1cm}\includegraphics[width=0.18\textwidth]{UB.png}\hspace{1.5cm}\includegraphics[width=0.18\textwidth]{UPC.png}\vspace{1cm}\LARGE\\}
+  - \posttitle{\end{center}}
+  - \pagestyle{fancy}
+  - \fancyhf{}
+  - \renewcommand{\headrulewidth}{0pt}
+  - \renewcommand{\footrulewidth}{1.5pt}
+  - \makeatletter
+  - \def\footrule{{\color{blue}\hrule\@width\headwidth\@height\footrulewidth \vskip-\footrulewidth}}
+  - \makeatother
 ---
 \newpage
 \renewcommand{\contentsname}{Índex}
@@ -1004,10 +1018,9 @@ risc respecte al grup de referència.
 
 En aquest cas, com que el model final inclou la interacció
 *gender:fage*, l'efecte del gènere sobre la taxa de fallida
-instantània depèn de l'edat del pacient, per la qual cosa les HR s'han
-d'interpretar de forma estratificada.
+instantània depèn de l'edat del pacient, per la qual cosa les Hazard Ratios (HR) s'han d'interpretar de forma estratificada.
 
-## HR individuals i intervals de confiança
+## Individuals i intervals de confiança
 
 \[
 HR = \exp\left(-\frac{\beta}{\text{scale}}\right)
@@ -1087,24 +1100,27 @@ kable(tabla.HR.ind,
       caption = "Hazard ratios individuals del model final")
 ```
 
-La taula anterior mostra les hazard ratios (HR) obtingudes a partir del model final de Weibull amb interacció entre gènere i edat.
+La taula anterior mostra les hazard ratios (HR) obtingudes a partir del model final de Weibull amb **interacció entre gènere i edat**.
 
-En primer lloc, l’efecte del gènere s’ha d’interpretar de manera diferent segons l’edat del pacient. En els menors de 70 anys, el contrast dona vs home presenta una HR = 4.5434 (IC 95%: 1.5632 – 13.2057), la qual cosa indica que les dones menors de 70 anys presenten un risc instantani de mort aproximadament 4.5 vegades superior al dels homes del mateix grup d’edat. Atès que l’interval de confiança no conté el valor 1, aquesta diferència és estadísticament significativa.
+En primer lloc, l’efecte del gènere s’ha d’interpretar de manera diferent segons l’edat del pacient. En els menors de 70 anys, el contrast dona vs home presenta una *HR = 4.5434 (IC 95%: 1.5632 – 13.2057)*, la qual cosa indica que les dones menors de 70 anys presenten un risc instantani de mort aproximadament 4.5 vegades superior al dels homes del mateix grup d’edat. Atès que l’interval de confiança no conté el valor 1, aquesta diferència és estadísticament significativa.
 
-En canvi, en els majors de 70 anys, el contrast dona vs home presenta una HR = 0.8256 (IC 95%: 0.4212 – 1.6183). Tot i que l’estimació puntual és inferior a 1, l’interval de confiança inclou el valor 1, de manera que no es poden afirmar diferències estadísticament significatives en el risc instantani de mort entre dones i homes dins d’aquest grup d’edat. Això confirma que l’efecte del gènere observat en els pacients més joves s’atenua i deixa de ser significatiu en edats avançades.
+En canvi, en els majors de 70 anys, el contrast dona vs home presenta una *HR = 0.8256 (IC 95%: 0.4212 – 1.6183)*. Tot i que l’estimació puntual és inferior a 1, l’interval de confiança inclou el valor 1, de manera que no es poden afirmar diferències estadísticament significatives en el risc instantani de mort entre dones i homes dins d’aquest grup d’edat. Això confirma que l’efecte del gènere observat en els pacients més joves s’atenua i deixa de ser significatiu en edats avançades.
 
-Pel que fa a l’efecte de l’edat, entre els homes el contrast 70+ vs 70- presenta una HR = 4.1279 (IC 95%: 1.7800 – 9.5725), la qual cosa indica que els homes de 70 anys o més tenen un risc instantani de mort més de quatre vegades superior al dels homes menors de 70 anys. Aquesta diferència és estadísticament significativa.
+Pel que fa a l’efecte de l’edat, entre els homes el contrast 70+ vs 70- presenta una *HR = 4.1279 (IC 95%: 1.7800 – 9.5725)*, la qual cosa indica que els homes de 70 anys o més tenen un risc instantani de mort més de quatre vegades superior al dels homes menors de 70 anys. Aquesta diferència és estadísticament significativa.
 
-No obstant això, entre les dones el contrast 70+ vs 70- presenta una HR = 0.7501 (IC 95%: 0.2861 – 1.9669). En aquest cas, l’interval de confiança inclou el valor 1, de manera que no s’observa un efecte estadísticament significatiu de l’edat dins del grup de dones. Aquest resultat torna a posar de manifest que l’efecte de l’edat no és homogeni entre ambdós sexes, fet coherent amb la interacció incorporada en el model.
+No obstant això, entre les dones el contrast 70+ vs 70- presenta una *HR = 0.7501 (IC 95%: 0.2861 – 1.9669)*. En aquest cas, l’interval de confiança inclou el valor 1, de manera que no s’observa un efecte estadísticament significatiu de l’edat dins del grup de dones. Aquest resultat torna a posar de manifest que l’efecte de l’edat no és homogeni entre ambdós sexes, fet coherent amb la interacció incorporada en el model.
 
-Finalment, el contrast IMC Alt vs IMC Baix presenta una HR = 0.3634 (IC 95%: 0.1956 – 0.6752), la qual cosa indica que els pacients amb IMC alt presenten una reducció significativa del risc instantani de mort respecte als pacients amb IMC baix. En termes pràctics, això implica que un IMC alt s’associa amb un risc instantani aproximadament un 63.7% inferior al d’un IMC baix.
+Finalment, el contrast IMC Alt vs IMC Baix presenta una *HR = 0.3634 (IC 95%: 0.1956 – 0.6752)*, la qual cosa indica que els pacients amb IMC alt presenten una reducció significativa del risc instantani de mort respecte als pacients amb IMC baix. En termes pràctics, això implica que un IMC alt s’associa amb un risc instantani aproximadament un 63.7% inferior al d’un IMC baix.
 
 En conjunt, els resultats mostren que el gènere i l’edat no es poden interpretar per separat, ja que el seu efecte sobre la supervivència depèn de la combinació d’ambdues variables. A més, un IMC alt apareix com un factor associat a un menor risc instantani de mort en el model final.
 
-## HR conjunts i intervals de confiança
+## En conjunt i intervals de confiança
 
 Es comparen diferents perfils complets respecte al grup de referència:
-- Home, menor de 70 anys, IMC baix
+
+- Home
+- menor de 70 anys
+- IMC baix
 
 ```{r}
 
