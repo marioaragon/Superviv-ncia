@@ -580,7 +580,7 @@ m.weib.age$scale
 
 El model de **Weibull** ajustat per **gènere** i **edat** mostra que l'edat és un confusor parcial de l'efecte del gènere. El coeficient de fage és significatiu (p = 0.004), indicant que els pacients majors de 70 anys presenten un temps de supervivència significativament menor. En canvi, el coeficient de gender deixa de ser significatiu (p = 0.280) un cop s'ajusta per l'edat, cosa que suggereix que part de **la diferència observada entre homes i dones** en el model simple es devia a la distribució diferencial de l'edat entre els dos grups.
 
-El paràmetre d'escala (1/p = 1.32, p < 1) confirma que **la taxa de risc és decreixent** al llarg del temps, cosa que valida l'ús del model de **Weibull** per sobre de l'exponencial. El test global del model és significatiu (p < 0.001), indicant que el conjunt de variables incloses millora l'ajust respecte al model nul.
+El paràmetre de forma (p = 1/scale = 1/1.32 = 0.756 < 1) indica que **la taxa de risc és decreixent** al llarg del temps. El test global del model és significatiu (p < 0.001), indicant que el conjunt de variables incloses millora l'ajust respecte al model nul.
 
 - LRT vs model amb només gender
 
@@ -754,7 +754,7 @@ m.weib.full$scale
 
 El model final seleccionat inclou **gender, fage, fbmi i la interacció gender:fage**, i **tots els coeficients són significatius**. La presència de la interacció indica que **l'efecte del gènere sobre la supervivència depèn de l'edat del pacient**, de manera que **no es pot interpretar l'efecte de gender de forma aïllada sense tenir en compte fage**.
 
-El coeficient de **gender (-1.888)** representa l'efecte del gènere **per als pacients menors de 70 anys (fage = 0)**, mentre que el terme **d'interacció gender:fage (2.127)** indica que aquest **efecte s'atenua** substancialment — i fins i tot **s'inverteix** — en els **pacients majors de 70 anys**. El paràmetre fbmi continua sent significatiu (p = 0.001), confirmant que **un IMC alt s'associa a una major supervivència** independentment del gènere i l'edat. El test global del model és altament significatiu (p < 0.001) i l'escala (1/p = 0.80) indica una taxa de risc lleugerament decreixent.
+El coeficient de **gender (-1.888)** representa l'efecte del gènere **per als pacients menors de 70 anys (fage = 0)**, mentre que el terme **d'interacció gender:fage (2.127)** indica que aquest **efecte s'atenua** substancialment — i fins i tot **s'inverteix** — en els **pacients majors de 70 anys**. El paràmetre fbmi continua sent significatiu (p = 0.001), confirmant que **un IMC alt s'associa a una major supervivència** independentment del gènere i l'edat. El test global del model és altament significatiu (p < 0.001) i el paràmetre de forma (p = 1/scale = 1/1.247 = 0.802 < 1) indica una taxa de risc lleugerament decreixent.
 
 ```{r}
 # LRT vs model amb només gender
