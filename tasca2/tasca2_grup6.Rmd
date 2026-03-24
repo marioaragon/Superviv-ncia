@@ -647,7 +647,7 @@ legend("topright", c("KM Home", "KM Dona", "Weib. Home", "Weib. Dona"),
 
 El gràfic mostra que **el model de Weibull ajustat per fage no s'ajusta bé a les dades**. Les corbes de Weibull per a homes i dones són pràcticament idèntiques i superposades, mentre que les corbes de Kaplan-Meier mostren una diferència clara entre els dos grups. Això indica que el model, un cop controlada l'edat, no és capaç de capturar la diferència de supervivència entre gèneres, cosa coherent amb el FA i HR no significatius obtinguts anteriorment. A més, el model sobrestima significativament la supervivència de les dones, ja que la corba de Weibull se situa molt per sobre de la KM corresponent al llarg de gairebé tot el període de seguiment. Aquest resultat indica que cal buscar alternatives per tal d'obtenir un model que expliqui millor la realitat de les dades.
 
-## Variable IBM
+## Variable BMI
 
 ```{r}
 # Gràfic log-log per validar Weibull estratificant per fbmi
