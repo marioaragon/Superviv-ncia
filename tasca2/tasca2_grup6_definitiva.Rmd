@@ -768,20 +768,21 @@ m.weib.age$scale
 1 / m.weib.age$scale
 ```
 
-El model de **Weibull** ajustat per **gènere** i **edat** mostra que
-**l'edat és un confusor parcial de l'efecte del gènere**. El coeficient
-de fage és significatiu (p = 0.004), indicant que els pacients majors de
-70 anys presenten un temps de supervivència significativament menor. En
-canvi, **el coeficient de gender deixa de ser significatiu (p = 0.280)
-un cop s'ajusta per l'edat**, cosa que suggereix que part de **la
-diferència observada entre homes i dones** en el model simple era
-**deguda a la distribució diferencial de l'edat** entre els dos grups.
+El model de Weibull ajustat per gènere i edat mostra que l'edat és un
+confusor parcial de l'efecte del gènere. El coeficient de fage és
+significatiu (p = 0.004), indicant que els pacients majors de 70 anys
+presenten un temps de supervivència significativament menor. En canvi,
+el coeficient de gender deixa de ser significatiu (p = 0.280) un cop
+s'ajusta per l'edat, cosa que suggereix que part de la diferència
+observada entre homes i dones en el model simple era deguda a la
+distribució diferencial de l'edat entre els dos grups.
 
-El paràmetre d'escala (1/p = 1.32, p \> 1) confirma que **la taxa de
-risc és creixent** al llarg del temps, cosa que valida l'ús del model de
-**Weibull** per sobre de l'exponencial. El test global del model és
-significatiu (p \< 0.001), indicant que el conjunt de variables incloses
-millora l'ajust respecte al model nul.
+El paràmetre de forma estimat (p = 1/1.323 = 0.756 \< 1) indica que la
+taxa de risc és decreixent al llarg del temps, cosa que suggereix que el
+risc de mort és més elevat en les primeres etapes del seguiment i
+disminueix progressivament. El test global del model és significatiu (p
+\< 0.001), indicant que el conjunt de variables incloses millora l'ajust
+respecte al model nul.
 
 ```{r}
 # LRT vs model amb només gender
@@ -864,7 +865,7 @@ gairebé tot el període de seguiment. Aquest resultat indica que cal
 buscar alternatives per tal d'obtenir un model que expliqui millor la
 realitat de les dades.
 
-## Variable IBM
+## Variable bmi
 
 ```{r}
 # Gràfic log-log per validar Weibull estratificant per fbmi
@@ -904,7 +905,7 @@ ajustat per edat, el coeficient de **gender continua sent significatiu**
 actua com a confusor de la relació entre gènere i supervivència**, sinó
 com una variable independent addicional.
 
-El paràmetre d'escala (1/p = 0.77, p \< 1) indicaria una **taxa de risc
+El paràmetre de forma (p = 1/1.30 = 0.77 \< 1) indica una **taxa de risc
 decreixent**, tot i que el test sobre Log(scale) és significatiu (p =
 0.037), confirmant que p $\neq$ 1 i que el model de Weibull és
 preferible a l'exponencial. El test global del model és significatiu (p
@@ -988,7 +989,7 @@ afegir interaccions.
 ## Conjuntament
 
 Construïm el model que inclou totes 3 variables: **gènere**, **edat** i
-**ibm**.
+**bmi**.
 
 Tindrem en compte **l'efecte d'interacció** entre les variables,
 escollint el model amb millor AIC.
@@ -1005,7 +1006,7 @@ gender:fage.**
 
 Això vol dir que el **millor balanç** entre **ajust** a les dades i
 **complexitat** del model inclou una **interacció significativa** entre
-**gènere i edat**. En canvi, l'efecte de l'IBM no varia independentment
+**gènere i edat**. En canvi, l'efecte de l'bmi no varia independentment
 del gènere o l'edat.
 
 Construïm el model:
@@ -1033,9 +1034,9 @@ El coeficient de **gender (-1.888)** representa l'efecte del gènere
 s'atenua** substancialment — i fins i tot **s'inverteix** — en els
 **pacients majors de 70 anys**. El paràmetre fbmi continua sent
 significatiu (p = 0.001), confirmant que **un IMC alt s'associa a una
-major supervivència** independentment del gènere i l'edat. El test
-global del model és altament significatiu (p \< 0.001) i l'escala (1/p =
-0.80) indica una taxa de risc lleugerament decreixent.
+major supervivència** independentment del gènere i l'edat.
+
+El test global del model és altament significatiu (p < 0.001) i el paràmetre de forma (p = 1/scale = 1/1.247 = 0.802 < 1) indica una taxa de risc decreixent al llarg del temps, tot i que més propera a 1 que en els models anteriors, cosa que suggereix que el risc disminueix de forma més moderada amb el temps.
 
 ```{r}
 # LRT vs model amb només gender
