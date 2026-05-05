@@ -1,0 +1,154 @@
+---
+title: "Análisis de Supervivencia en Pacientes con Insuficiencia Cardíaca"
+subtitle: "Trabajo de Evaluación Continuada – Segunda Parte"
+author: "Análisis de Supervivencia · Curso 2024-25"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: true
+    number_sections: true
+    extra_dependencies: ["float"]
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    highlight: tango
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, fig.pos = "H")
+library(survival)
+library(survminer)
+library(knitr)
+library(kableExtra)
+```
+
+---
+
+# Introducción y Planteamiento del Problema
+
+## Contexto clínico
+
+La insuficiencia cardíaca (IC) es una de las enfermedades crónicas con mayor impacto en la salud pública a nivel mundial. Se caracteriza por la incapacidad del corazón para bombear sangre de forma eficiente, lo que provoca síntomas como fatiga, dificultad respiratoria y retención de líquidos. A pesar de los avances médicos, la IC sigue siendo una de las principales causas de hospitalización y mortalidad en personas mayores de 60 años.
+
+En este contexto, un equipo médico de un hospital universitario diseñó un **ensayo clínico aleatorizado** con el objetivo de evaluar la eficacia de un nuevo fármaco vasodilatador en comparación con el tratamiento estándar (que actúa como grupo de control o placebo activo). El estudio reclutó a **1.400 pacientes** dados de alta tras un episodio agudo de insuficiencia cardíaca, y realizó un seguimiento durante un período máximo de **dos años (730 días)**.
+
+El **evento de interés** es el fallecimiento del paciente por causa cardiovascular. Existe un conjunto de individuos de los que se pierde el seguimiento en determinados momentos de tiempo. Estos serán tenidos en cuenta como **observaciones censuradas**.
+
+\newpage
+
+## Descripción de las variables
+
+El fichero `datos.txt` contiene información de los 1.400 pacientes incluidos en el ensayo. Las variables recogidas son las siguientes:
+
+| Variable | Tipo | Descripción en el contexto |
+|----------|------|---------------------------|
+| `Survt`  | Cuantitativa continua | Tiempo de seguimiento (en días) hasta el evento o hasta la censura |
+| `Status` | Binaria (0/1) | Indicador del evento: **1** = fallecimiento; **0** = censurado |
+| `x1`     | Binaria (0/1) | Tipo de tratamiento: **1** = tratamiento estándar (control); **0** = nuevo fármaco vasodilatador |
+| `x2`     | Cuantitativa continua (escala 1-10) | **Nivel de cumplimiento dietético** registrado en el momento del alta; valores más altos indican mejor adherencia a la dieta prescrita |
+| `x3`     | Cuantitativa continua | **Nivel de estrés percibido** medido mediante cuestionario, expresado como cambio respecto al ingreso; valores negativos indican reducción del estrés y valores positivos indican aumento |
+| `x4`     | Categórica binaria (1/2) | **Sexo biológico**: **1** = hombre; **2** = mujer |
+| `x5`     | Cuantitativa continua (escala 1-10) | **Puntuación de bienestar emocional** registrada en el momento del alta mediante cuestionario estandarizado; valores más altos indican mayor bienestar |
+
+> **Nota:** La variable `x4` (sexo) es una variable binaria de naturaleza nominal, con dos categorías. En el análisis se tratará como factor y se incluirá en los modelos de forma adecuada. Las variables `x2` y `x5` son puntuaciones en escala 1-10 obtenidas mediante cuestionarios validados aplicados en el momento del alta hospitalaria.
+
+## Objetivo del estudio
+
+El objetivo principal de este análisis es determinar qué factores están asociados con el tiempo hasta el fallecimiento por causa cardiovascular en pacientes con insuficiencia cardíaca dados de alta, y en particular, evaluar si el nuevo tratamiento farmacológico reduce el riesgo de dicho evento respecto al tratamiento estándar.
+
+Para ello se aplicará el **modelo de regresión de Cox** en dos variantes:
+
+- **Modelo de Cox estratificado**: permitirá controlar el efecto del sexo (`x4`) como variable de estratificación, en caso de que no cumpla el supuesto de riesgos proporcionales.
+- **Modelo de Cox ampliado (con covariables dependientes del tiempo)**: se considerará si alguna de las variables cuantitativas requiere una especificación temporal más flexible.
+
+---
+
+# Análisis descriptivo de los datos
+
+En primer lugar cargamos los datos y transformamos a factor las variables categóricas del estudio.
+
+```{r carga-datos}
+# Carga y preparación de los datos
+datos <- read.table("datos.txt", header = TRUE)
+
+# Versión con etiquetas (para tablas y descriptivo)
+datos$x4 <- factor(datos$x4, levels = c(1, 2), labels = c("Hombre", "Mujer"))
+datos$x1 <- factor(datos$x1, levels = c(0, 1), labels = c("Nuevo fármaco", "Trat. estándar"))
+
+# Versión numérica para las curvas KM (evita el error con surv.median.line)
+datos$trat_num <- ifelse(datos$x1 == "Nuevo fármaco", 0, 1)
+datos$sexo_num <- ifelse(datos$x4 == "Hombre", 1, 2)
+```
+
+## Estadísticos descriptivos
+
+A continuación se presentan los principales estadísticos descriptivos de las variables cuantitativas y la distribución de las variables categóricas.
+
+```{r tabla-cuantitativas, echo=FALSE}
+# Tabla descriptiva para variables cuantitativas
+vars_cuant <- datos[, c("Survt", "x2", "x3", "x5")]
+nombres <- c(
+  "Tiempo de seguimiento (días)",
+  "Cumplimiento dietético (escala 1-10)",
+  "Cambio en nivel de estrés",
+  "Bienestar emocional (escala 1-10)"
+)
+
+tabla_desc <- data.frame(
+  Variable  = nombres,
+  N         = sapply(vars_cuant, function(x) sum(!is.na(x))),
+  Media     = sapply(vars_cuant, function(x) round(mean(x, na.rm = TRUE), 2)),
+  Desv.Tip  = sapply(vars_cuant, function(x) round(sd(x, na.rm = TRUE), 2)),
+  Mínimo    = sapply(vars_cuant, function(x) round(min(x, na.rm = TRUE), 2)),
+  Mediana   = sapply(vars_cuant, function(x) round(median(x, na.rm = TRUE), 2)),
+  Máximo    = sapply(vars_cuant, function(x) round(max(x, na.rm = TRUE), 2)),
+  row.names = NULL
+)
+
+kable(tabla_desc,
+      caption = "Tabla 1. Estadísticos descriptivos de las variables cuantitativas",
+      align = c("l", rep("c", 6))) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE,
+                position = "center") %>%
+  row_spec(0, bold = TRUE, background = "#2980B9", color = "white")
+```
+
+La tabla muestra los estadísticos descriptivos de las cuatro variables cuantitativas del estudio. El tiempo de seguimiento medio es de 367 días (aproximadamente un año), con una mediana similar (370 días), lo que sugiere una distribución bastante simétrica. Tanto el cumplimiento dietético como el bienestar emocional presentan medias y medianas muy próximas a 5.5 sobre 10, indicando que los pacientes se sitúan, en promedio, en un nivel intermedio en ambas dimensiones al alta. El cambio en el nivel de estrés tiene una media positiva (3.95), lo que indica que, en general, los pacientes experimentaron un ligero aumento del estrés respecto al momento del ingreso, aunque con notable variabilidad (desviación típica de 5.16) y valores que oscilan entre -12.35 y 23.47, reflejando respuestas muy heterogéneas entre individuos.
+
+```{r tabla-categoricas, echo=FALSE}
+# Tabla para variables categóricas
+tab_trat   <- table(datos$x1)
+tab_sexo   <- table(datos$x4)
+tab_event  <- table(factor(datos$Status, levels = c(0, 1),
+                           labels = c("Censurado", "Fallecido")))
+
+tabla_cat <- data.frame(
+  Variable  = c("Tratamiento", "", "Sexo", "", "Estado final", ""),
+  Categoría = c("Nuevo fármaco", "Trat. estándar",
+                "Hombre", "Mujer",
+                "Censurado", "Fallecido"),
+  N = c(tab_trat, tab_sexo, tab_event),
+  Porcentaje = c(round(prop.table(tab_trat) * 100, 1),
+                 round(prop.table(tab_sexo) * 100, 1),
+                 round(prop.table(tab_event) * 100, 1)),
+  row.names = NULL
+)
+tabla_cat$Porcentaje <- paste0(tabla_cat$Porcentaje, "%")
+
+kable(tabla_cat,
+      caption = "Tabla 2. Distribución de las variables categóricas",
+      align = c("l", "l", "c", "c")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE,
+                position = "center") %>%
+  row_spec(0, bold = TRUE, background = "#2980B9", color = "white") %>%
+  row_spec(c(1, 3, 5), bold = TRUE)
+```
+
+El estudio incluye `r nrow(datos)` pacientes, de los cuales el `r round(prop.table(tab_event)["Fallecido"]*100,1)`% falleció durante el seguimiento por causas cardiovasculares (evento observado) y el `r round(prop.table(tab_event)["Censurado"]*100,1)`% restante fue censurado. La distribución por sexo es prácticamente equilibrada, y el grupo del nuevo fármaco representa algo más de la mitad de la muestra.
+
+## Curvas de Kaplan-Meier
+
