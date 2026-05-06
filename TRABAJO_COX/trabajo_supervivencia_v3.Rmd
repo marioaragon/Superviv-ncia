@@ -1,0 +1,431 @@
+---
+title: "Análisis de Supervivencia en Pacientes que han Sufrido un Ictus"
+subtitle: "Trabajo de Evaluación Continuada — Segunda Parte"
+date: "Curso 2024-25"
+output:
+  pdf_document:
+    toc: true
+    number_sections: true
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    number_sections: true
+    theme: flatly
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.align = "center",
+  fig.width = 8,
+  fig.height = 5
+)
+```
+
+---
+
+# Introducción y contexto del estudio
+
+El ictus es una de las principales causas de muerte y discapacidad en el mundo. Se produce cuando el flujo de sangre hacia una parte del cerebro se interrumpe de forma súbita, provocando un daño que puede resultar fatal. Según la Organización Mundial de la Salud, el ictus causa aproximadamente 5,5 millones de muertes al año a nivel global, siendo la segunda causa de muerte más frecuente tras las enfermedades coronarias.
+
+En este trabajo se analizan los datos de un **estudio de seguimiento prospectivo** llevado a cabo en una red de hospitales públicos españoles. El estudio tiene como objetivo evaluar la **supervivencia de pacientes tras haber sufrido un ictus**, así como identificar qué factores influyen en el riesgo de fallecimiento durante los dos años posteriores al episodio.
+
+Un aspecto central del estudio es la comparación entre el **tratamiento estándar** actualmente empleado en la práctica clínica y un **nuevo tratamiento que se encuentra en fase de evaluación**, y que ha mostrado resultados prometedores en estudios previos. Junto con el tipo de tratamiento, se recogen también características básicas del paciente en el momento del ingreso que podrían condicionar su evolución.
+
+El evento de interés es el **fallecimiento del paciente** durante el período de seguimiento. Los pacientes que siguen vivos al finalizar los dos años de seguimiento (730 días) se consideran **observaciones censuradas**, al igual que aquellos que abandonan el estudio antes de su conclusión.
+
+---
+
+
+# Descripción de las variables
+
+La muestra está formada por **1.400 pacientes** ingresados tras sufrir un ictus. Para cada uno de ellos se dispone de las siguientes variables:
+
+| Variable | Descripción | Tipo |
+|----------|-------------|------|
+| `Survt`  | Tiempo de supervivencia desde el ictus hasta el fallecimiento o hasta la censura, medido en días | Cuantitativa continua |
+| `Status` | Variable de censura: `1` si el paciente fallece durante el seguimiento; `0` si no se produce el evento | Binaria |
+| `x1`     | Tipo de tratamiento: `1` = tratamiento estándar; `0` = nuevo tratamiento en estudio | Binaria |
+| `x2`     | Edad del paciente en el momento del ictus, en años | Cuantitativa continua |
+| `x3`     | Presión arterial sistólica registrada al ingreso hospitalario, en mmHg | Cuantitativa continua |
+| `x4`     | Sexo del paciente: `1` = mujer; `0` = hombre | Binaria |
+| `x5`     | Índice de masa corporal (IMC) del paciente al ingreso, en kg/m² | Cuantitativa continua |
+
+A continuación se describe el papel esperado de cada variable en el análisis:
+
+- **`x1` — Tratamiento:** Es la variable de interés principal del estudio. Se compara si los pacientes que reciben el nuevo tratamiento en evaluación presentan una supervivencia mayor que los que reciben el tratamiento estándar.
+
+- **`x2` — Edad:** A mayor edad, el organismo tiene menor capacidad de recuperación y mayor vulnerabilidad ante las complicaciones, por lo que se espera que la edad esté asociada a un mayor riesgo de fallecimiento.
+
+- **`x3` — Presión arterial sistólica al ingreso:** Refleja el estado cardiovascular del paciente en el momento del episodio. Tanto valores muy bajos como muy elevados pueden indicar mayor gravedad y asociarse a un peor pronóstico.
+
+- **`x4` — Sexo:** Existen diferencias entre hombres y mujeres en la incidencia y evolución del ictus. Se incluye como posible factor de confusión o modificador del efecto del tratamiento.
+
+- **`x5` — IMC:** El índice de masa corporal es un indicador del estado nutricional general del paciente. Valores extremos pueden estar asociados a un peor pronóstico durante el seguimiento.
+
+---
+
+# Objetivos del análisis
+
+El análisis se estructura en torno a los siguientes objetivos:
+
+1. Describir la supervivencia global de los pacientes mediante el estimador de Kaplan-Meier y comparar las curvas de supervivencia según el tipo de tratamiento recibido.
+
+2. Ajustar un **modelo de Cox estándar** que permita estimar el efecto de cada covariable sobre el riesgo de fallecimiento, controlando simultáneamente por el resto de factores.
+
+3. Verificar el **supuesto de proporcionalidad de riesgos** del modelo de Cox para cada covariable, mediante el test de Schoenfeld y el análisis gráfico correspondiente.
+
+4. En caso de que alguna covariable no cumpla el supuesto de proporcionalidad, ajustar un **modelo de Cox estratificado** que permita que la función de riesgo basal varíe entre los grupos definidos por dicha variable.
+
+5. Considerar un **modelo de Cox ampliado** que incorpore covariables dependientes del tiempo, como alternativa o complemento al modelo estratificado.
+
+6. Interpretar todos los resultados en términos de *hazard ratios* (HR) e intervalos de confianza al 95%, en el contexto del estudio de supervivencia tras ictus.
+
+---
+
+# Planteamiento metodológico
+
+## El modelo de Cox
+
+El modelo de regresión de Cox (Cox, 1972) es el modelo semiparamétrico de referencia en el análisis de supervivencia. Permite estudiar el efecto de un conjunto de covariables sobre el riesgo instantáneo de que ocurra el evento de interés (en este caso, el fallecimiento), sin necesidad de asumir ninguna forma paramétrica concreta para dicho riesgo a lo largo del tiempo.
+
+Para el individuo $i$, el modelo expresa la función de riesgo como:
+
+$$h_i(t) = h_0(t) \cdot \exp\left(\beta_1 x_{1i} + \beta_2 x_{2i} + \beta_3 x_{3i} + \beta_4 x_{4i} + \beta_5 x_{5i}\right)$$
+
+donde $h_0(t)$ es la función de riesgo basal, común a todos los individuos, y los coeficientes $\beta_j$ miden el efecto de cada covariable. El exponencial de cada coeficiente, $\exp(\beta_j)$, se interpreta como el **hazard ratio (HR)**: cuántas veces es mayor el riesgo de un grupo respecto al de referencia, manteniendo fijas el resto de variables.
+
+El modelo de Cox estándar asume que los riesgos de los distintos grupos son **proporcionales** a lo largo del tiempo, es decir, que el HR entre dos individuos cualesquiera es constante en el tiempo. Este supuesto debe verificarse.
+
+## Modelo estratificado
+
+Si una covariable viola el supuesto de proporcionalidad, una solución es **estratificar** el modelo por dicha variable. En este caso, se permite que cada estrato tenga su propia función de riesgo basal $h_{0g}(t)$, mientras que el efecto del resto de covariables sigue siendo común a todos los estratos:
+
+$$h_{ig}(t) = h_{0g}(t) \cdot \exp\left(\sum_j \beta_j x_{ij}\right)$$
+
+La variable de estratificación no genera un coeficiente propio (no se obtiene un HR para ella), pero su efecto sobre el riesgo basal queda controlado.
+
+## Modelo ampliado
+
+El modelo de Cox ampliado permite incorporar **covariables dependientes del tiempo**, cuyo valor o efecto puede cambiar a lo largo del seguimiento. Una forma habitual de abordar la no proporcionalidad es incluir un término de interacción entre la covariable problemática y una función del tiempo, por ejemplo $x_j \cdot \log(t)$:
+
+$$h_i(t) = h_0(t) \cdot \exp\left(\beta_j x_{ji} + \gamma_j \left[x_{ji} \cdot \log(t)\right] + \ldots\right)$$
+
+Si el coeficiente $\gamma_j$ resulta significativo, se confirma que el efecto de la covariable varía con el tiempo, explicando así la violación del supuesto de proporcionalidad.
+
+---
+
+# Exploración inicial de los datos
+
+## Carga de librerías y datos
+
+```{r, include=FALSE}
+library(survival)
+library(survminer)
+library(ggplot2)
+library(dplyr)
+library(knitr)
+library(kableExtra)
+```
+
+```{r, include=FALSE}
+# Lectura del fichero de datos
+datos <- read.table("datos.txt", header = TRUE, sep = "")
+```
+
+## Resumen descriptivo
+
+```{r resumen-descriptivo, echo=FALSE}
+summary(datos)
+```
+
+```{r, echo=FALSE}
+data.frame(
+  Variable = c(
+    "N total",
+    "Fallecimientos (eventos)",
+    "Tiempo mediano de supervivencia (días)",
+    "Edad media — x2 (años)",
+    "Presión arterial sistólica media — x3 (mmHg)",
+    "IMC medio — x5 (kg/m²)",
+    "Tratamiento estándar — x1=1 (%)",
+    "Mujeres — x4=1 (%)"
+  ),
+  Valor = c(
+    nrow(datos),
+    paste0(sum(datos$Status), " (", round(mean(datos$Status) * 100, 1), "%)"),
+    median(datos$Survt),
+    round(mean(datos$x2), 1),
+    round(mean(datos$x3), 1),
+    round(mean(datos$x5), 1),
+    paste0(round(mean(datos$x1) * 100, 1), "%"),
+    paste0(round(mean(datos$x4) * 100, 1), "%")
+  )
+) %>%
+  kable(caption = "Tabla 1. Características basales de la muestra") %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE
+  )
+```
+
+## Curvas de Kaplan-Meier
+
+```{r fig.height=8, fig.width=12, out.width="100%", fig.align="center", echo=FALSE}
+# Definición del objeto de supervivencia
+surv_obj <- Surv(time = datos$Survt, event = datos$Status)
+
+# Estimación global
+km_global <- survfit(surv_obj ~ 1, data = datos)
+
+# Crear el gráfico y asignarlo a una variable
+p_km_global <- ggsurvplot(
+  km_global,
+  data = datos,
+  conf.int = TRUE,
+  risk.table = TRUE,
+  xlab = "Tiempo (días)",
+  ylab = "Probabilidad de supervivencia",
+  title = "Supervivencia global tras el ictus",
+  ggtheme = theme_bw(),
+  palette = "#2E9648",
+  risk.table.height = 0.25
+)
+
+# Imprimir el gráfico
+print(p_km_global)
+```
+
+
+
+```{r km-tratamiento, fig.height=8, fig.width=12, out.width="100%", fig.align="center", echo=FALSE}
+
+km_tto <- survfit(surv_obj ~ x1, data = datos)
+
+p_km_tto <- ggsurvplot(
+  km_tto,
+  data = datos,
+  conf.int = TRUE,
+  risk.table = TRUE,
+  xlab = "Tiempo (días)",
+  ylab = "Probabilidad de supervivencia",
+  title = "Supervivencia por tratamiento",
+  ggtheme = theme_bw(),
+  palette = c("#2E9648", "#E7298A"),
+  risk.table.height = 0.25,
+  break.time.by = 200,
+  xlim = c(0, max(datos$Survt)),
+  legend.title = "Tratamiento",
+  legend.labs = c("Grupo 0", "Grupo 1"),  # ajusta según tus categorías
+  pval = TRUE,          # muestra p-valor del log-rank
+  pval.method = TRUE    # muestra el nombre del test
+)
+
+print(p_km_tto)
+```
+
+
+---
+
+# Modelos de regresión de Cox
+
+
+## Definición del objeto de supervivencia y modelos básicos
+
+En primer lugar, se construye el objeto de supervivencia combinando el tiempo de seguimiento (`Survt`) y el indicador de evento (`Status`), que será la variable respuesta en todos los modelos de Cox ajustados a continuación.
+
+```{r cox-setup}
+surv_obj <- Surv(time = datos$Survt, event = datos$Status)
+```
+
+**¿Hay empates?**
+
+```{r}
+empates <- table(datos$Survt[datos$Status == 1])
+sum(empates > 1)
+```
+No se detectan empates en los tiempos de fallecimiento
+
+### Modelo 1: solo tratamiento
+
+```{r modelo1}
+model1 <- coxph(surv_obj ~ x1, data = datos, ties = "efron")
+summary(model1)
+```
+
+El modelo ajustado con únicamente la variable de tratamiento (x1) proporciona un HR de 1.145 (IC 95%: 1.036–1.264), estadísticamente significativo (p = 0.008). Esto indica que los pacientes que reciben el tratamiento estándar (x1 = 1) presentan un riesgo de fallecimiento aproximadamente un 14.5% superior al de los pacientes que reciben el nuevo tratamiento, sin ajustar por ninguna otra covariable.
+
+Los tres tests globales del modelo (razón de verosimilitudes, Wald y score) coinciden en un p-valor de 0.008, confirmando que el tratamiento tiene un efecto significativo sobre la supervivencia. No obstante, el índice de concordancia (C = 0.521) es apenas superior al azar (0.5), lo que refleja que el tratamiento por sí solo tiene una capacidad discriminativa muy limitada y que otras covariables deberán incorporarse al modelo para mejorar su ajuste.
+
+### Modelo 2: tratamiento + covariables
+
+A continuación, el Modelo 2 ajusta simultáneamente por todas las covariables disponibles.
+
+```{r modelo2}
+model2 <- coxph(surv_obj ~ x1 + x2 + x3 + x4 + x5, data = datos, ties = "efron")
+summary(model2)
+```
+
+Al incorporar todas las covariables disponibles, el modelo mejora notablemente su ajuste global (p < 2×10^-16 en los tres tests) y la concordancia sube a C = 0.551. Los resultados variable a variable son:
+
+x1 — Tratamiento (HR = 1.164, IC 95%: 1.054–1.285, p = 0.003): el efecto del tratamiento se mantiene significativo y de magnitud similar al Modelo 1. Controlando por el resto de factores, el tratamiento estándar supone un riesgo de fallecimiento un 16.4% superior al del nuevo tratamiento.
+x3 — Presión arterial sistólica (HR = 1.027, IC 95%: 1.017–1.037, p < 0.001): cada mmHg adicional de presión al ingreso aumenta el riesgo de fallecimiento un 2.7%, siendo el segundo factor más relevante del modelo.
+x4 — Sexo (HR = 0.698, IC 95%: 0.629–0.775, p < 0.001): las mujeres (x4 = 1) presentan un riesgo de fallecimiento un 30.2% inferior al de los hombres, siendo la variable con mayor impacto en el modelo.
+x2 — Edad (HR = 0.996, p = 0.700) y x5 — IMC (HR = 0.994, p = 0.554) no resultan estadísticamente significativas en presencia del resto de covariables.
+
+La mayor precisión del HR para x1 en este modelo (amplitud del IC = 0.231) respecto al Modelo 1 (amplitud = 0.228) confirma que ajustar por covariables de confusión mejora la estimación del efecto del tratamiento.
+
+
+### Elección del mejor modelo
+
+El proceso de selección de variables se aborda mediante un procedimiento stepwise bidireccional con criterio BIC (Bayesian Information Criterion). El punto de partida es un modelo sin ninguna variable, y el techo es un modelo que incluye los cinco efectos principales (x1–x5) junto con las interacciones entre el tratamiento (x1) y el resto de covariables, ya que el interés central del estudio es evaluar si el efecto del tratamiento varía según las características del paciente. En cada paso el algoritmo considera añadir o eliminar términos, quedándose únicamente con aquellos que mejoran el ajuste global del modelo.
+
+La elección del BIC frente al AIC responde a una decisión de parsimonia. Ambos criterios penalizan la complejidad del modelo para evitar el sobreajuste, pero el BIC es más estricto: penaliza en mayor medida el número de variables incluidas en el modelo.
+
+
+```{r seleccion-variables, fig.height=6, fig.width=10, include=FALSE}
+library(MASS)
+
+# Modelo completo con efectos principales e interacciones de x1 con el resto
+modelo_completo <- coxph(
+  surv_obj ~ x1 + x2 + x3 + x4 + x5 +
+             x1:x2 + x1:x3 + x1:x4 + x1:x5,
+  data = datos, ties = "efron"
+)
+
+# Modelo nulo (solo intercepto)
+modelo_nulo <- coxph(surv_obj ~ 1, data = datos, ties = "efron")
+
+# Selección stepwise con BIC
+# k = log(n) usa penalización BIC en lugar de AIC
+n <- nrow(datos)
+modelo_bic <- step(
+  modelo_nulo,
+  scope = list(lower = modelo_nulo, upper = modelo_completo),
+  direction = "both",
+  k = log(n)
+)
+```
+El modelo elegido mediante el método stepwise con criterio BIC es el siguiente:
+```{r}
+summary(modelo_bic)
+```
+
+El mejor modelo no incluye interacciones de primer orden de las variables del individuo con el tratamiento aplicado. 
+
+También es un resultado relevante que, de la misma manera que en el output del modelo 2, se concluye que las variables X2 (edad del paciente) y X5 (IMC) no son relevantes para el estudio, dada su no significancia.
+
+Por contra, se demuestra que las variables X1 (tratamiento), X3 (Presión arterial sistólica registrada al ingreso hospitalario) y X4 (género del paciente) sí son significativas para entender el tiempo de supervivencia.
+
+La comparación de este modelo con el que contiene todas las variables explicativas:
+
+```{r, echo=FALSE}
+# Tabla resumen de criterios
+data.frame(
+  Modelo     = c("Modelo 2 (efectos principales)", "Modelo seleccionado BIC"),
+  AIC        = c(AIC(model2), AIC(modelo_bic)),
+  BIC        = c(BIC(model2), BIC(modelo_bic)),
+  Concordancia = c(summary(model2)$concordance[1],
+                   summary(modelo_bic)$concordance[1])
+) |>
+  kable(digits = 3, caption = "Tabla X. Comparación modelo completo vs seleccionado") |>
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+La tabla muestra un resultado ligeramente mejor para el modelo elegido con la estrategia stepwise. Este era un resultado esperable teniendo en cuenta su no significancia. Eliminar variables que no aportan información relevante para explicar la variable endógena (en este caso el tiempo de supervivencia) mejora el BIC del modelo.
+
+# Evaluación del supuesto de riesgos proporcionales
+
+Se evalúa el supuesto de proporcionalidad de riesgos del modelo seleccionado  mediante tres aproximaciones complementarias: análisis gráfico de las curvas 
+log-log, el test formal de Schoenfeld y la inspección visual de los residuos  de Schoenfeld a lo largo del tiempo.
+
+Dado que la variable presión arterial (x3) es continua, no es posible representar directamente las curvas log-log por grupos. Para facilitar su evaluación gráfica, se ha categorizado en terciles, creando tres grupos de tamaño similar: Bajo, Medio
+y Alto. Esta discretización es únicamente un recurso visual y no afecta a cómo entra la variable en el modelo de Cox, donde se mantiene en su escala continua original.
+
+## Método gráfico: curvas log-log
+
+Si los riesgos son proporcionales, las curvas log-log de Kaplan-Meier de los distintos grupos deben ser aproximadamente paralelas. 
+
+
+```{r ph-loglog, fig.height=5, fig.width=12, fig.align="center", out.width="100%", echo=FALSE}
+par(mfrow = c(1, 3))
+
+# x1 — Tratamiento
+KM_x1 <- survfit(surv_obj ~ x1, data = datos)
+plot(KM_x1, fun = "cloglog", lty = c(1, 2), col = c("#2E9648", "#E7298A"),
+     xlab = "log(Tiempo)", ylab = "log-log supervivencia",
+     main = "log-log por tratamiento (x1)")
+legend("topleft", c("Nuevo (x1=0)", "Estándar (x1=1)"),
+       lty = c(1, 2), col = c("#2E9648", "#E7298A"), cex = 0.8)
+
+# x3 — Presión arterial (categorizada en terciles para el gráfico)
+datos$x3_cat <- cut(datos$x3, breaks = quantile(datos$x3, c(0, 1/3, 2/3, 1)),
+                    labels = c("Bajo", "Medio", "Alto"), include.lowest = TRUE)
+KM_x3 <- survfit(surv_obj ~ x3_cat, data = datos)
+plot(KM_x3, fun = "cloglog", lty = c(1, 2, 3), col = c(1, 2, 4),
+     xlab = "log(Tiempo)", ylab = "log-log supervivencia",
+     main = "log-log por presión arterial (x3)")
+legend("topleft", c("Bajo", "Medio", "Alto"),
+       lty = c(1, 2, 3), col = c(1, 2, 4), cex = 0.8)
+
+# x4 — Sexo
+KM_x4 <- survfit(surv_obj ~ x4, data = datos)
+plot(KM_x4, fun = "cloglog", lty = c(1, 2), col = c(1, 2),
+     xlab = "log(Tiempo)", ylab = "log-log supervivencia",
+     main = "log-log por sexo (x4)")
+legend("topleft", c("Hombre (x4=0)", "Mujer (x4=1)"),
+       lty = c(1, 2), col = c(1, 2), cex = 0.8)
+
+par(mfrow = c(1, 1))
+```
+
+**Tratamiento (x1): el gráfico genera dudas.** Las curvas de los dos grupos son aproximadamente paralelas a lo largo de gran parte del gráfico, pero se separan en el extremo inferior. La conclusión sobre el cumplimiento del supuesto de riesgos proporcionales dependerá de la información que den los otros métodos.
+
+**Presión arterial (x3): el supuesto es dudoso.** Las curvas presentan un comportamiento que hace sospechar del incumplimiento del supuesto de riesgos proporcionales, especialmente para las curvas de niveles medio y alto. 
+
+**Sexo (x4): el supuesto es cuestionable.** Las curvas de hombres y mujeres también se cruzan, sobre todo en el extremo derecho del gráfico, lo que sugiere que la diferencia en el riesgo entre ambos sexos varía según el momento en que nos encontremos del seguimiento.
+
+## Test de Schoenfeld
+
+El test de Schoenfeld contrasta formalmente la hipótesis nula de  proporcionalidad de riesgos para cada covariable. P-valores elevados  (p > 0.05) indican que no hay evidencia para rechazar el supuesto.
+
+```{r ph-test-schoenfeld, echo=FALSE}
+modelo_bic <- coxph(surv_obj ~ x4 + x3 + x1, data = datos, ties = "efron")
+test_ph <- cox.zph(modelo_bic)
+print(test_ph)
+```
+Los resultados del test de Schoenfeld confirman en parte lo observado gráficamente. La variable sexo (x4) muestra una violación clara del supuesto, con un p-valor muy pequeño (p < 0.001), lo que indica que su efecto sobre el riesgo no es constante a lo largo del tiempo. Por el contrario, la presión arterial (x3) y el tratamiento (x1) no presentan evidencia estadística en contra del supuesto, con p-valores de 0.26 y 0.16 respectivamente. El contraste global también resulta significativo, arrastrado principalmente por el sexo. En consecuencia, habría que abordar la no proporcionalidad del sexo antes de interpretar los coeficientes del modelo, por ejemplo estratificando por esta variable.
+
+## Residuos de Schoenfeld
+
+Si el supuesto de proporcionalidad se cumple, los residuos de Schoenfeld deben distribuirse aleatoriamente alrededor de cero a lo largo del tiempo,  sin mostrar ninguna tendencia sistemática.
+
+```{r ph-residuos, fig.height=4, fig.width=12, out.width="100%", fig.align="center", echo=FALSE}
+par(mfrow = c(1, 3))
+plot(test_ph, var = 1, main = "Residuos Schoenfeld — x4 (Sexo)")
+abline(h = 0, lty = 2, col = "red")
+plot(test_ph, var = 2, main = "Residuos Schoenfeld — x3 (Presión arterial)")
+abline(h = 0, lty = 2, col = "red")
+plot(test_ph, var = 3, main = "Residuos Schoenfeld — x1 (Tratamiento)")
+abline(h = 0, lty = 2, col = "red")
+par(mfrow = c(1, 1))
+```
+
+Los gráficos de residuos de Schoenfeld refuerzan las conclusiones anteriores.
+
+En el caso del sexo (x4), los residuos muestran una tendencia ondulatoria muy marcada a lo largo del tiempo, lejos de distribuirse aleatoriamente alrededor
+de cero, lo que confirma la violación del supuesto. 
+
+Para la presión arterial (x3), los residuos se dispersan de forma irregular alrededor de cero sin mostrar ningún patrón claro, lo que es consistente con el cumplimiento del supuesto.
+
+El tratamiento (x1) presenta un comportamiento algo más llamativo: los residuos forman dos bandas claramente separadas, lo que se debe a que es una variable binaria y no indica un problema de proporcionalidad en sí mismo, siendo además
+coherente con el p-valor no significativo del test de Schoenfeld.Se observa algun residuo outlier en la parte derecha del gráfico, pero en general el comportamiento parece el esperado para poder aceptar riesgos proporcionales.
+
+En conclusión, tanto el tratamiento (x1) como la presión arterial (x3) pueden considerarse compatibles con el supuesto de riesgos proporcionales, a la vista
+del análisis gráfico y del test de Schoenfeld. El sexo (x4), en cambio, viola claramente el supuesto y deberá tratarse de forma adecuada antes de interpretar
+los resultados del modelo, por ejemplo mediante estratificación.
+
