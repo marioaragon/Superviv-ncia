@@ -26,17 +26,22 @@ knitr::opts_chunk$set(
 )
 ```
 
----
+\newpage
 
 # Introducción y contexto del estudio
 
-El ictus es una de las principales causas de muerte y discapacidad en el mundo. Se produce cuando el flujo de sangre hacia una parte del cerebro se interrumpe de forma súbita, provocando un daño que puede resultar fatal. Según la Organización Mundial de la Salud, el ictus causa aproximadamente 5,5 millones de muertes al año a nivel global, siendo la segunda causa de muerte más frecuente tras las enfermedades coronarias.
+Antes de aplicar a los datos un modelo de Cox, tanto en su versión estratificada como ampliada, es necesario contextualizar el problema y explicar los supuestos que deben cumplirse para poder interpretar correctamente los resultados obtenidos. En particular, estos modelos requieren que las variables consideradas satisfagan la hipótesis de riesgos proporcionales.
 
-En este trabajo se analizan los datos de un **estudio de seguimiento prospectivo** llevado a cabo en una red de hospitales públicos españoles. El estudio tiene como objetivo evaluar la **supervivencia de pacientes tras haber sufrido un ictus**, así como identificar qué factores influyen en el riesgo de fallecimiento durante los dos años posteriores al episodio.
+El ictus constituye una de las principales causas de muerte y discapacidad en el mundo. Esta enfermedad se produce cuando el flujo sanguíneo hacia una parte del cerebro se interrumpe de manera repentina, provocando daños cerebrales que pueden llegar a ser fatales. Según la Organización Mundial de la Salud, el ictus causa aproximadamente 5,5 millones de muertes al año a nivel mundial, siendo la segunda causa de muerte más frecuente después de las enfermedades coronarias.
 
-Un aspecto central del estudio es la comparación entre el **tratamiento estándar** actualmente empleado en la práctica clínica y un **nuevo tratamiento que se encuentra en fase de evaluación**, y que ha mostrado resultados prometedores en estudios previos. Junto con el tipo de tratamiento, se recogen también características básicas del paciente en el momento del ingreso que podrían condicionar su evolución.
+En este contexto, el análisis de supervivencia resulta especialmente útil para estudiar el tiempo hasta la aparición de un determinado evento, permitiendo evaluar cómo diferentes factores clínicos y demográficos influyen en el riesgo asociado a la supervivencia de los pacientes que han sufrido un
 
-El evento de interés es el **fallecimiento del paciente** durante el período de seguimiento. Los pacientes que siguen vivos al finalizar los dos años de seguimiento (730 días) se consideran **observaciones censuradas**, al igual que aquellos que abandonan el estudio antes de su conclusión.
+
+En este trabajo se analizan los datos de un estudio de seguimiento prospectivo llevado a cabo en una red de hospitales públicos españoles. El estudio tiene como objetivo evaluar la **supervivencia de pacientes tras haber sufrido un ictus**, así como identificar qué factores influyen en el riesgo de fallecimiento durante los dos años posteriores al episodio.
+
+Un aspecto central del estudio es la comparación entre el **tratamiento estándar** actualmente empleado en la práctica clínica y un **nuevo tratamiento** que se encuentra aún en fase de evaluación pero no obstante, ha mostrado resultados prometedores en estudios previos. Junto con el tipo de tratamiento, se recogen también características básicas del paciente en el momento del ingreso que podrían condicionar su evolución.
+
+El evento de interés es el **fallecimiento del paciente** durante el período de seguimiento. Los pacientes que siguen vivos al finalizar los dos años de seguimiento, concluyendo a un estudio aproximado de unos 730 días, al igual que aquellos que abandonan el estudio antes de su conclusión se consideran **observaciones censuradas por la derecha**, al no conocer con exactitud el tiempo de superpervivencia es inferior o igual al tiempo exacto de supervivencia. 
 
 ---
 
@@ -44,6 +49,8 @@ El evento de interés es el **fallecimiento del paciente** durante el período d
 # Descripción de las variables
 
 La muestra está formada por **1.400 pacientes** ingresados tras sufrir un ictus. Para cada uno de ellos se dispone de las siguientes variables:
+
+\newpage
 
 | Variable | Descripción | Tipo |
 |----------|-------------|------|
@@ -55,11 +62,11 @@ La muestra está formada por **1.400 pacientes** ingresados tras sufrir un ictus
 | `x4`     | Sexo del paciente: `1` = mujer; `0` = hombre | Binaria |
 | `x5`     | Índice de masa corporal (IMC) del paciente al ingreso, en kg/m² | Cuantitativa continua |
 
-A continuación se describe el papel esperado de cada variable en el análisis:
+A continuación, se describe el papel esperado de cada variable en el análisis que se realizará posteriormente, así como el tipo de variable al que pertenece cada una de ellas según la clasificación previamente definida.
 
 - **`x1` — Tratamiento:** Es la variable de interés principal del estudio. Se compara si los pacientes que reciben el nuevo tratamiento en evaluación presentan una supervivencia mayor que los que reciben el tratamiento estándar.
 
-- **`x2` — Edad:** A mayor edad, el organismo tiene menor capacidad de recuperación y mayor vulnerabilidad ante las complicaciones, por lo que se espera que la edad esté asociada a un mayor riesgo de fallecimiento.
+- **`x2` — Edad:** A mayor edad, el organismo tiende a tenor menor capacidad de recuperación y mayor vulnerabilidad ante las complicaciones, por lo que se espera que la edad esté asociada a un mayor riesgo de fallecimiento.
 
 - **`x3` — Presión arterial sistólica al ingreso:** Refleja el estado cardiovascular del paciente en el momento del episodio. Tanto valores muy bajos como muy elevados pueden indicar mayor gravedad y asociarse a un peor pronóstico.
 
@@ -101,6 +108,48 @@ donde $h_0(t)$ es la función de riesgo basal, común a todos los individuos, y 
 
 El modelo de Cox estándar asume que los riesgos de los distintos grupos son **proporcionales** a lo largo del tiempo, es decir, que el HR entre dos individuos cualesquiera es constante en el tiempo. Este supuesto debe verificarse.
 
+El modelo de Cox se considera un modelo *semiparamétrico* debido a que combina una parte paramétrica y otra no paramétrica.
+
+### Parte paramétrica
+
+La parte paramétrica del modelo viene dada por:
+
+$$
+\exp\left(\sum_{j=1}^{p} \beta_j X_j\right),
+$$
+
+es decir, por la exponencial del predictor lineal:
+
+$$
+\eta = \sum_{j=1}^{p} \beta_j X_j.
+$$
+
+En esta componente se estiman los parámetros de regresión
+
+$$
+\hat{\boldsymbol{\beta}} = (\hat{\beta}_1, \ldots, \hat{\beta}_p)
+$$
+
+mediante la maximización de la denominada *función de verosimilitud parcial*, la cual constituye uno de los elementos fundamentales del modelo de Cox.
+
+### Parte no paramétrica
+
+La parte no paramétrica corresponde a la función de riesgo basal \(h_0(t)\). Esta función no se especifica previamente y se considera arbitraria, por lo que debe estimarse posteriormente condicionada a los valores obtenidos para los parámetros de regresión.
+
+Debido a esta combinación entre una componente paramétrica y otra no paramétrica, el modelo de Cox recibe el nombre de modelo *semiparamétrico*.
+
+Una vez estimadas ambas componentes, el modelo completo queda expresado como:
+
+$$
+\hat{h}(t \mid \mathbf{X}) =
+\hat{h}_0(t)
+\exp\left(\sum_{j=1}^{p} \hat{\beta}_j X_j\right).
+$$
+
+Tal como se ha mencionado anteriormente, en el modelo de Cox la función de riesgo basal \(h_0(t)\) no está especificada explícitamente y, por tanto, tampoco lo está la distribución del término de error.
+
+En cambio, en los modelos paramétricos la forma funcional de la distribución sí se encuentra completamente especificada, salvo por un conjunto reducido de parámetros desconocidos que deben ser estimados a partir de los datos.
+
 ## Modelo estratificado
 
 Si una covariable viola el supuesto de proporcionalidad, una solución es **estratificar** el modelo por dicha variable. En este caso, se permite que cada estrato tenga su propia función de riesgo basal $h_{0g}(t)$, mientras que el efecto del resto de covariables sigue siendo común a todos los estratos:
@@ -111,11 +160,111 @@ La variable de estratificación no genera un coeficiente propio (no se obtiene u
 
 ## Modelo ampliado
 
-El modelo de Cox ampliado permite incorporar **covariables dependientes del tiempo**, cuyo valor o efecto puede cambiar a lo largo del seguimiento. Una forma habitual de abordar la no proporcionalidad es incluir un término de interacción entre la covariable problemática y una función del tiempo, por ejemplo $x_j \cdot \log(t)$:
+## Hipótesis de proporcionalidad y modelo de Cox extendido
 
-$$h_i(t) = h_0(t) \cdot \exp\left(\beta_j x_{ji} + \gamma_j \left[x_{ji} \cdot \log(t)\right] + \ldots\right)$$
+Uno de los supuestos fundamentales del modelo de Cox es la hipótesis de riesgos proporcionales. Esta hipótesis establece que el efecto de las covariables sobre el riesgo permanece constante a lo largo del tiempo, es decir, que las razones de riesgo (*hazard ratios*) entre individuos son proporcionales durante todo el periodo de seguimiento.
 
-Si el coeficiente $\gamma_j$ resulta significativo, se confirma que el efecto de la covariable varía con el tiempo, explicando así la violación del supuesto de proporcionalidad.
+Cuando esta condición no se cumple, el efecto de algunas variables puede variar temporalmente, lo que implica que el modelo de Cox clásico deja de ser completamente adecuado. Por ello, antes de interpretar los resultados obtenidos, es necesario verificar si la hipótesis de proporcionalidad se satisface para cada predictor incluido en el modelo.
+
+Como ya se ha comentado anteriormente, la hipótesis de riesgos proporcionales puede evaluarse mediante tres metodologías principales:
+
+1. Métodos gráficos, como las curvas log-log o la comparación entre valores “observados” y “esperados”.
+2. Contrastes estadísticos específicos, como el test de Schoenfeld.
+3. Inclusión de variables dependientes del tiempo mediante un modelo de Cox extendido.
+
+El modelo de Cox ampliado permite incorporar covariables dependientes del tiempo, cuyo valor o efecto puede cambiar a lo largo del seguimiento. Una forma habitual de abordar la falta de proporcionalidad consiste en introducir un término de interacción entre la covariable problemática y una función temporal, por ejemplo \(x_j \cdot \log(t)\):
+
+$$
+h_i(t)=h_0(t)\cdot
+\exp\left(
+\beta_j x_{ji}
++
+\gamma_j\left[x_{ji}\cdot\log(t)\right]
++\ldots
+\right)
+$$
+
+En este caso, el parámetro \(\gamma_j\) mide cómo evoluciona el efecto de la covariable con el tiempo. Si dicho coeficiente resulta estadísticamente significativo, se concluye que el efecto de la variable no permanece constante y, por tanto, que se viola la hipótesis de riesgos proporcionales.
+
+Cuando, tras evaluar esta hipótesis, se detecta que uno o varios predictores no cumplen la proporcionalidad, existen dos alternativas principales:
+
+1. Aplicar un modelo de Cox estratificado, estratificando por las variables que incumplen la hipótesis y manteniendo el resto como covariables ordinarias.
+2. Incorporar variables dependientes del tiempo mediante un modelo de Cox extendido.
+
+En esta sección se desarrollará la segunda alternativa.
+
+### Tipos de variables dependientes del tiempo
+
+Existen variables que dependen intrínsecamente del tiempo, ya que sus valores evolucionan según las propias características del individuo. Algunos ejemplos son:
+
+- Nivel de exposición en el instante \(t\), \(E(t)\).
+- Estado laboral en el instante \(t\), \(EMP(t)\).
+- Estado de fumador en el instante \(t\), \(SMK(t)\).
+- Nivel de obesidad en el instante \(t\), \(OBS(t)\).
+
+Por otro lado, existen variables cuyos valores cambian con el tiempo debido a factores externos al individuo. Estas variables reciben el nombre de variables *auxiliares*. Un ejemplo sería el nivel de contaminación ambiental en el instante \(t\), o incluso el estado laboral \(EMP(t)\) cuando este depende principalmente de la situación económica general y no de las características individuales del sujeto.
+
+Un ejemplo clásico es la variable indicadora de trasplante cardíaco:
+
+$$
+HT(t)=
+\begin{cases}
+0, & t < t_0 \\
+1, & t \geq t_0
+\end{cases}
+$$
+
+donde \(t_0\) representa el instante en el que el paciente recibe el trasplante.
+
+Esta variable puede interpretarse parcialmente como intrínseca, ya que la decisión de realizar el trasplante depende de las características clínicas del paciente. Sin embargo, la disponibilidad de un órgano compatible también depende de factores externos, por lo que puede considerarse simultáneamente una variable auxiliar.
+
+## Formulación del modelo de Cox extendido
+
+Supongamos que se dispone de:
+
+- \(p_1\) predictores independientes del tiempo:
+
+$$
+X_1,\ldots,X_{p_1}
+$$
+
+- \(p_2\) predictores dependientes del tiempo:
+
+$$
+X_1(t),\ldots,X_{p_2}(t)
+$$
+
+Definiendo el conjunto total de covariables como:
+
+$$
+X(t)=\left(
+X_1,\ldots,X_{p_1},
+X_1(t),\ldots,X_{p_2}(t)
+\right),
+$$
+
+el modelo de Cox extendido se expresa mediante:
+
+$$
+h(t,X(t))=
+h_0(t)\exp\left(
+\sum_{j=1}^{p_1}\beta_jX_j
++
+\sum_{j=1}^{p_2}\delta_jX_j(t)
+\right).
+$$
+
+La estimación de los parámetros se realiza igualmente mediante máxima verosimilitud parcial. No obstante, en comparación con el modelo de Cox clásico, los conjuntos de riesgo asociados a cada instante temporal son más complejos debido a la presencia de covariables que evolucionan con el tiempo.
+
+En este contexto, los datos suelen estructurarse en formato *counting process* o formato \((start, stop)\), que permite registrar adecuadamente los cambios temporales de las covariables.
+
+Finalmente, los procedimientos de inferencia estadística son esencialmente los mismos que en el modelo de Cox de riesgos proporcionales. En particular, pueden utilizarse:
+
+- Tests de Wald.
+- Contrastes basados en razones de verosimilitud.
+- Intervalos de confianza para los parámetros estimados.
+
+Todo ello gracias a que la estimación continúa fundamentándose en la maximización de la función de verosimilitud parcial.
 
 ---
 
