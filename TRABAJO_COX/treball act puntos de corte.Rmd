@@ -1,0 +1,1563 @@
+---
+title: "Análisis de Supervivencia en Pacientes que han Sufrido un Ictus"
+subtitle: "Trabajo de Evaluación Continuada — Segunda Parte"
+date: "Curso 2025-26"
+output:
+  pdf_document:
+    toc: true
+    number_sections: true
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    number_sections: true
+    theme: flatly
+    highlight: tango
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.align = "center",
+  fig.width = 8,
+  fig.height = 5
+)
+```
+
+\newpage
+
+# Introducción y contexto del estudio
+
+Antes de aplicar a los datos un modelo de Cox, tanto en su versión
+estratificada como ampliada, es necesario contextualizar el problema y
+explicar los supuestos que deben cumplirse para poder interpretar
+correctamente los resultados obtenidos. En particular, estos modelos
+requieren que las variables consideradas satisfagan la hipótesis de
+riesgos proporcionales.
+
+El ictus constituye una de las principales causas de muerte y
+discapacidad en el mundo. Esta enfermedad se produce cuando el flujo
+sanguíneo hacia una parte del cerebro se interrumpe de manera repentina,
+provocando daños cerebrales que pueden llegar a ser fatales. Según la
+Organización Mundial de la Salud, el ictus causa aproximadamente 5,5
+millones de muertes al año a nivel mundial, siendo la segunda causa de
+muerte más frecuente después de las enfermedades coronarias.
+
+En este contexto, el análisis de supervivencia resulta especialmente
+útil para estudiar el tiempo hasta la aparición de un determinado
+evento, permitiendo evaluar cómo diferentes factores clínicos y
+demográficos influyen en el riesgo asociado a la supervivencia de los
+pacientes que han sufrido un ictus.
+
+En este trabajo se analizan los datos de un estudio de seguimiento
+prospectivo llevado a cabo en una red de hospitales públicos españoles.
+El estudio tiene como objetivo evaluar la **supervivencia de pacientes
+tras haber sufrido un ictus**, así como identificar qué factores
+influyen en el riesgo de fallecimiento durante los dos años posteriores
+al episodio.
+
+Un aspecto central del estudio es la comparación entre el **tratamiento
+estándar** actualmente empleado en la práctica clínica y un **nuevo
+tratamiento** que se encuentra aún en fase de evaluación pero no
+obstante, ha mostrado resultados prometedores en estudios previos. Junto
+con el tipo de tratamiento, se recogen también características básicas
+del paciente en el momento del ingreso que podrían condicionar su
+evolución.
+
+El evento de interés es el **fallecimiento del paciente** durante el
+período de seguimiento. Los pacientes que siguen vivos al finalizar los
+dos años de seguimiento, concluyendo a un estudio aproximado de unos 730
+días, al igual que aquellos que abandonan el estudio antes de su
+conclusión se consideran **observaciones censuradas por la derecha**, al
+no conocer con exactitud el tiempo de superpervivencia es inferior o
+igual al tiempo exacto de supervivencia.
+
+------------------------------------------------------------------------
+
+# Descripción de las variables
+
+La muestra está formada por **1.400 pacientes** ingresados tras sufrir
+un ictus. Para cada uno de ellos se dispone de las siguientes variables:
+
+\newpage
+
+| Variable | Descripción | Tipo |
+|------------------------|-------------------------------|-----------------|
+| `Survt` | Tiempo de supervivencia desde el ictus hasta el fallecimiento o hasta la censura, medido en días | Cuantitativa continua |
+| `Status` | Variable de censura: `1` si el paciente fallece durante el seguimiento; `0` si no se produce el evento | Binaria |
+| `x1` | Tipo de tratamiento: `1` = tratamiento estándar; `0` = nuevo tratamiento en estudio | Binaria |
+| `x2` | Edad del paciente en el momento del ictus, en años | Cuantitativa continua |
+| `x3` | Presión arterial sistólica registrada al ingreso hospitalario, en mmHg | Cuantitativa continua |
+| `x4` | Sexo del paciente: `1` = mujer; `0` = hombre | Binaria |
+| `x5` | Índice de masa corporal (IMC) del paciente al ingreso, en kg/m² | Cuantitativa continua |
+
+A continuación, se describe el papel esperado de cada variable en el
+análisis que se realizará posteriormente, así como el tipo de variable
+al que pertenece cada una de ellas según la clasificación previamente
+definida.
+
+-   **`x1` — Tratamiento:** Es la variable de interés principal del
+    estudio. Se compara si los pacientes que reciben el nuevo
+    tratamiento en evaluación presentan una supervivencia mayor que los
+    que reciben el tratamiento estándar.
+
+-   **`x2` — Edad:** A mayor edad, el organismo tiende a tener menor
+    capacidad de recuperación y mayor vulnerabilidad ante las
+    complicaciones, por lo que se espera que la edad esté asociada a un
+    mayor riesgo de fallecimiento.
+
+-   **`x3` — Presión arterial sistólica al ingreso:** Refleja el estado
+    cardiovascular del paciente en el momento del episodio. Tanto
+    valores muy bajos como muy elevados pueden indicar mayor gravedad y
+    asociarse a un peor pronóstico.
+
+-   **`x4` — Sexo:** Existen diferencias entre hombres y mujeres en la
+    incidencia y evolución del ictus. Se incluye como posible factor de
+    confusión o modificador del efecto del tratamiento.
+
+-   **`x5` — IMC:** El índice de masa corporal es un indicador del
+    estado nutricional general del paciente. Valores extremos pueden
+    estar asociados a un peor pronóstico durante el seguimiento.
+
+------------------------------------------------------------------------
+
+# Objetivos del análisis
+
+El análisis se estructura en torno a los siguientes objetivos:
+
+1.  Describir la supervivencia global de los pacientes mediante el
+    estimador de Kaplan-Meier y comparar las curvas de supervivencia
+    según el tipo de tratamiento recibido.
+
+2.  Ajustar un **modelo de Cox estándar** que permita estimar el efecto
+    de cada covariable sobre el riesgo de fallecimiento, controlando
+    simultáneamente por el resto de factores.
+
+3.  Verificar el **supuesto de proporcionalidad de riesgos** del modelo
+    de Cox para cada covariable, mediante el test de Schoenfeld y el
+    análisis gráfico correspondiente.
+
+4.  En caso de que alguna covariable no cumpla el supuesto de
+    proporcionalidad, ajustar un **modelo de Cox estratificado** que
+    permita que la función de riesgo basal varíe entre los grupos
+    definidos por dicha variable.
+
+5.  Considerar un **modelo de Cox ampliado** que incorpore covariables
+    dependientes del tiempo, como alternativa o complemento al modelo
+    estratificado.
+
+6.  Interpretar todos los resultados en términos de *hazard ratios* (HR)
+    e intervalos de confianza al 95%, en el contexto del estudio de
+    supervivencia tras ictus.
+
+------------------------------------------------------------------------
+
+# Planteamiento metodológico
+
+## El modelo de Cox
+
+El modelo de regresión de Cox (Cox, 1972) es el modelo semiparamétrico
+de referencia en el análisis de supervivencia. Permite estudiar el
+efecto de un conjunto de covariables sobre el riesgo instantáneo de que
+ocurra el evento de interés (en este caso, el fallecimiento), sin
+necesidad de asumir ninguna forma paramétrica concreta para dicho riesgo
+a lo largo del tiempo.
+
+Para el individuo $i$, el modelo expresa la función de riesgo como:
+
+$$h_i(t) = h_0(t) \cdot \exp\left(\beta_1 x_{1i} + \beta_2 x_{2i} + \beta_3 x_{3i} + \beta_4 x_{4i} + \beta_5 x_{5i}\right)$$
+
+donde $h_0(t)$ es la función de riesgo basal, común a todos los
+individuos, y los coeficientes $\beta_j$ miden el efecto de cada
+covariable. El exponencial de cada coeficiente, $\exp(\beta_j)$, se
+interpreta como el **hazard ratio (HR)**: cuántas veces es mayor el
+riesgo de un grupo respecto al de referencia, manteniendo fijas el resto
+de variables.
+
+El modelo de Cox estándar asume que los riesgos de los distintos grupos
+son **proporcionales** a lo largo del tiempo, es decir, que el HR entre
+dos individuos cualesquiera es constante en el tiempo. Este supuesto
+debe verificarse.
+
+El modelo de Cox se considera un modelo *semiparamétrico* debido a que
+combina una parte paramétrica y otra no paramétrica.
+
+### Parte paramétrica
+
+La parte paramétrica del modelo viene dada por:
+
+$$
+\exp\left(\sum_{j=1}^{p} \beta_j X_j\right),
+$$
+
+es decir, por la exponencial del predictor lineal:
+
+$$
+\eta = \sum_{j=1}^{p} \beta_j X_j.
+$$
+
+En esta componente se estiman los parámetros de regresión
+
+$$
+\hat{\boldsymbol{\beta}} = (\hat{\beta}_1, \ldots, \hat{\beta}_p)
+$$
+
+mediante la maximización de la denominada *función de verosimilitud
+parcial*, la cual constituye uno de los elementos fundamentales del
+modelo de Cox.
+
+### Parte no paramétrica
+
+La parte no paramétrica corresponde a la función de riesgo basal
+$h_0(t)$. Esta función no se especifica previamente y se considera
+arbitraria, por lo que debe estimarse posteriormente condicionada a los
+valores obtenidos para los parámetros de regresión.
+
+Debido a esta combinación entre una componente paramétrica y otra no
+paramétrica, el modelo de Cox recibe el nombre de modelo
+*semiparamétrico*.
+
+Una vez estimadas ambas componentes, el modelo completo queda expresado
+como:
+
+$$
+\hat{h}(t \mid \mathbf{X}) =
+\hat{h}_0(t)
+\exp\left(\sum_{j=1}^{p} \hat{\beta}_j X_j\right).
+$$
+
+Tal como se ha mencionado anteriormente, en el modelo de Cox la función
+de riesgo basal $h_0(t)$ no está especificada explícitamente y, por
+tanto, tampoco lo está la distribución del término de error.
+
+En cambio, en los modelos paramétricos la forma funcional de la
+distribución sí se encuentra completamente especificada, salvo por un
+conjunto reducido de parámetros desconocidos que deben ser estimados a
+partir de los datos.
+
+## Modelo estratificado
+
+Si una covariable viola el supuesto de proporcionalidad, una solución es
+**estratificar** el modelo por dicha variable. En este caso, se permite
+que cada estrato tenga su propia función de riesgo basal $h_{0g}(t)$,
+mientras que el efecto del resto de covariables sigue siendo común a
+todos los estratos:
+
+$$h_{ig}(t) = h_{0g}(t) \cdot \exp\left(\sum_j \beta_j x_{ij}\right)$$
+
+La variable de estratificación no genera un coeficiente propio (no se
+obtiene un HR para ella), pero su efecto sobre el riesgo basal queda
+controlado. n consecuencia, el modelo estratificado permite relajar
+parcialmente la hipótesis de riesgos proporcionales, ya que admite que
+la función de riesgo basal pueda variar entre estratos definidos por la
+variable problemática. Sin embargo, se mantiene la hipótesis de que los
+efectos de las restantes covariables son constantes entre los diferentes
+grupos.
+
+Este modelo se conoce como modelo estratificado “sin interacción”,
+puesto que los coeficientes asociados a las covariables explicativas son
+comunes a todos los estratos. Por tanto, los hazard ratios estimados se
+interpretan de forma global y no específica para cada grupo de
+estratificación.
+
+En caso de que los efectos de las covariables difieran
+significativamente entre estratos, puede considerarse un modelo de Cox
+estratificado “con interacción”, incorporando términos de interacción
+entre las covariables y la variable de estratificación.
+
+## Modelo ampliado
+
+## Hipótesis de proporcionalidad y modelo de Cox extendido
+
+Uno de los supuestos fundamentales del modelo de Cox es la hipótesis de
+riesgos proporcionales. Esta hipótesis establece que el efecto de las
+covariables sobre el riesgo permanece constante a lo largo del tiempo,
+es decir, que las razones de riesgo (*hazard ratios*) entre individuos
+son proporcionales durante todo el periodo de seguimiento.
+
+Cuando esta condición no se cumple, el efecto de algunas variables puede
+variar temporalmente, lo que implica que el modelo de Cox clásico deja
+de ser completamente adecuado. Por ello, antes de interpretar los
+resultados obtenidos, es necesario verificar si la hipótesis de
+proporcionalidad se satisface para cada predictor incluido en el modelo.
+
+Como ya se ha comentado anteriormente, la hipótesis de riesgos
+proporcionales puede evaluarse mediante tres metodologías principales:
+
+1.  Métodos gráficos, como las curvas log-log o la comparación entre
+    valores “observados” y “esperados”.
+2.  Contrastes estadísticos específicos, como el test de Schoenfeld.
+3.  Inclusión de variables dependientes del tiempo mediante un modelo de
+    Cox extendido.
+
+El modelo de Cox ampliado permite incorporar covariables dependientes
+del tiempo, cuyo valor o efecto puede cambiar a lo largo del
+seguimiento. Una forma habitual de abordar la falta de proporcionalidad
+consiste en introducir un término de interacción entre la covariable
+problemática y una función temporal, por ejemplo $x_j \cdot \log(t)$:
+
+$$
+h_i(t)=h_0(t)\cdot
+\exp\left(
+\beta_j x_{ji}
++
+\gamma_j\left[x_{ji}\cdot\log(t)\right]
++\ldots
+\right)
+$$
+
+En este caso, el parámetro $\gamma_j$ mide cómo evoluciona el efecto de
+la covariable con el tiempo. Si dicho coeficiente resulta
+estadísticamente significativo, se concluye que el efecto de la variable
+no permanece constante y, por tanto, que se viola la hipótesis de
+riesgos proporcionales.
+
+Cuando, tras evaluar esta hipótesis, se detecta que uno o varios
+predictores no cumplen la proporcionalidad, existen dos alternativas
+principales:
+
+1.  Aplicar un modelo de Cox estratificado, estratificando por las
+    variables que incumplen la hipótesis y manteniendo el resto como
+    covariables ordinarias.
+2.  Incorporar variables dependientes del tiempo mediante un modelo de
+    Cox extendido.
+
+En esta sección se desarrollará la segunda alternativa.
+
+### Tipos de variables dependientes del tiempo
+
+Existen variables que dependen intrínsecamente del tiempo, ya que sus
+valores evolucionan según las propias características del individuo.
+Algunos ejemplos son:
+
+-   Nivel de exposición en el instante $t$, $E(t)$.
+-   Estado laboral en el instante $t$, $EMP(t)$.
+-   Estado de fumador en el instante $t$, $SMK(t)$.
+-   Nivel de obesidad en el instante $t$, $OBS(t)$.
+
+Por otro lado, existen variables cuyos valores cambian con el tiempo
+debido a factores externos al individuo. Estas variables reciben el
+nombre de variables *auxiliares*. Un ejemplo sería el nivel de
+contaminación ambiental en el instante $t$, o incluso el estado laboral
+$EMP(t)$ cuando este depende principalmente de la situación económica
+general y no de las características individuales del sujeto.
+
+Un ejemplo clásico es la variable indicadora de trasplante cardíaco:
+
+$$
+HT(t)=
+\begin{cases}
+0, & t < t_0 \\
+1, & t \geq t_0
+\end{cases}
+$$
+
+donde $t_0$ representa el instante en el que el paciente recibe el
+trasplante.
+
+Esta variable puede interpretarse parcialmente como intrínseca, ya que
+la decisión de realizar el trasplante depende de las características
+clínicas del paciente. Sin embargo, la disponibilidad de un órgano
+compatible también depende de factores externos, por lo que puede
+considerarse simultáneamente una variable auxiliar.
+
+## Formulación del modelo de Cox extendido
+
+Supongamos que se dispone de:
+
+-   $p_1$ predictores independientes del tiempo:
+
+$$
+X_1,\ldots,X_{p_1}
+$$
+
+-   $p_2$ predictores dependientes del tiempo:
+
+$$
+X_1(t),\ldots,X_{p_2}(t)
+$$
+
+Definiendo el conjunto total de covariables como:
+
+$$
+X(t)=\left(
+X_1,\ldots,X_{p_1},
+X_1(t),\ldots,X_{p_2}(t)
+\right),
+$$
+
+el modelo de Cox extendido se expresa mediante:
+
+$$
+h(t,X(t))=
+h_0(t)\exp\left(
+\sum_{j=1}^{p_1}\beta_jX_j
++
+\sum_{j=1}^{p_2}\delta_jX_j(t)
+\right).
+$$
+
+La estimación de los parámetros se realiza igualmente mediante máxima
+verosimilitud parcial. No obstante, en comparación con el modelo de Cox
+clásico, los conjuntos de riesgo asociados a cada instante temporal son
+más complejos debido a la presencia de covariables que evolucionan con
+el tiempo.
+
+En este contexto, los datos suelen estructurarse en formato *counting
+process* o formato $(start, stop)$, que permite registrar adecuadamente
+los cambios temporales de las covariables.
+
+Finalmente, los procedimientos de inferencia estadística son
+esencialmente los mismos que en el modelo de Cox de riesgos
+proporcionales. En particular, pueden utilizarse:
+
+-   Tests de Wald.
+-   Contrastes basados en razones de verosimilitud.
+-   Intervalos de confianza para los parámetros estimados.
+
+Todo ello gracias a que la estimación continúa fundamentándose en la
+maximización de la función de verosimilitud parcial.
+
+------------------------------------------------------------------------
+
+# Exploración inicial de los datos
+
+Antes de ajustar los distintos modelos de supervivencia, es conveniente
+realizar una exploración inicial de los datos con el objetivo de conocer
+las características generales de la muestra, detectar posibles anomalías
+y obtener una primera aproximación al comportamiento de las variables
+incluidas en el estudio.
+
+En esta fase se analizan las principales características descriptivas de
+las covariables, así como la distribución de los tiempos de
+supervivencia y del estado de censura. Además, se representan curvas de
+Kaplan-Meier para visualizar de forma previa la evolución de la
+supervivencia en los distintos grupos considerados.
+
+## Carga de librerías y datos
+
+```{r, include=FALSE}
+library(survival)
+library(survminer)
+library(ggplot2)
+library(dplyr)
+library(knitr)
+library(kableExtra)
+```
+
+```{r, include=FALSE}
+# Lectura del fichero de datos
+datos <- read.table("datos.txt", header = TRUE, sep = "")
+```
+
+## Resumen descriptivo
+
+```{r resumen-descriptivo, echo=FALSE}
+summary(datos)
+```
+
+```{r, echo=FALSE}
+data.frame(
+  Variable = c(
+    "N total",
+    "Fallecimientos (eventos)",
+    "Tiempo mediano de supervivencia (días)",
+    "Edad media — x2 (años)",
+    "Presión arterial sistólica media — x3 (mmHg)",
+    "IMC medio — x5 (kg/m²)",
+    "Tratamiento estándar — x1=1 (%)",
+    "Mujeres — x4=1 (%)"
+  ),
+  Valor = c(
+    nrow(datos),
+    paste0(sum(datos$Status), " (", round(mean(datos$Status) * 100, 1), "%)"),
+    median(datos$Survt),
+    round(mean(datos$x2), 1),
+    round(mean(datos$x3), 1),
+    round(mean(datos$x5), 1),
+    paste0(round(mean(datos$x1) * 100, 1), "%"),
+    paste0(round(mean(datos$x4 == 1) * 100, 1), "%")
+  )
+) %>%
+  kable(caption = "Tabla 1. Características basales de la muestra") %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = FALSE
+  )
+```
+
+La tabla anterior resume las principales características basales de la
+muestra analizada, observándose una distribución adecuada de las
+covariables incluidas en el estudio para el posterior análisis de
+supervivencia.
+
+## Curvas de Kaplan-Meier
+
+A continuación cumplimos con el objetivo de describir la supervivencia
+global de los pacientes mediante el estimador de Kaplan-Meier y comparar
+las curvas de supervivencia según el tipo de tratamiento recibido.
+
+```{r fig.height=8, fig.width=12, out.width="100%", fig.align="center", echo=FALSE}
+# Definición del objeto de supervivencia
+surv_obj <- Surv(time = datos$Survt, event = datos$Status)
+
+# Estimación global
+km_global <- survfit(surv_obj ~ 1, data = datos)
+
+# Crear el gráfico y asignarlo a una variable
+p_km_global <- ggsurvplot(
+  km_global,
+  data = datos,
+  conf.int = TRUE,
+  risk.table = TRUE,
+  xlab = "Tiempo (días)",
+  ylab = "Probabilidad de supervivencia",
+  title = "Supervivencia global tras el ictus",
+  ggtheme = theme_bw(),
+  palette = "#2E9648",
+  risk.table.height = 0.25
+)
+
+# Imprimir el gráfico
+print(p_km_global)
+```
+
+```{r km-tratamiento, fig.height=8, fig.width=12, out.width="100%", fig.align="center", echo=FALSE}
+
+km_tto <- survfit(surv_obj ~ x1, data = datos)
+
+p_km_tto <- ggsurvplot(
+  km_tto,
+  data = datos,
+  conf.int = TRUE,
+  risk.table = TRUE,
+  xlab = "Tiempo (días)",
+  ylab = "Probabilidad de supervivencia",
+  title = "Supervivencia por tratamiento",
+  ggtheme = theme_bw(),
+  palette = c("#2E9648", "#E7298A"),
+  risk.table.height = 0.25,
+  break.time.by = 200,
+  xlim = c(0, max(datos$Survt)),
+  legend.title = "Tratamiento",
+  legend.labs = c("Grupo 0", "Grupo 1"),  # ajusta según tus categorías
+  pval = TRUE,          # muestra p-valor del log-rank
+  pval.method = TRUE    # muestra el nombre del test
+)
+
+print(p_km_tto)
+```
+
+La curva de Kaplan-Meier global muestra una disminución progresiva de la
+probabilidad de supervivencia de los pacientes tras sufrir un ictus,
+observándose un descenso continuo a medida que aumenta el tiempo de
+seguimiento.
+
+En términos generales, la supervivencia se reduce de forma relativamente
+estable hasta aproximarse a valores cercanos a cero al final del periodo
+analizado. Por otro lado, al comparar la supervivencia según el
+tratamiento recibido, se aprecia que el Grupo 0 presenta
+sistemáticamente probabilidades de supervivencia ligeramente superiores
+a las del Grupo 1 durante prácticamente todo el seguimiento. Esta
+diferencia entre ambas curvas queda respaldada por el test log-rank
+(p=0.0076), lo que indica la existencia de diferencias estadísticamente
+significativas entre los grupos en términos de supervivencia. Además,
+las curvas no presentan cruces relevantes, lo que sugiere, de manera
+preliminar, que la hipótesis de riesgos proporcionales podría ser
+razonable para esta covariable.
+
+------------------------------------------------------------------------
+
+# Modelos de regresión de Cox
+
+## Definición del objeto de supervivencia y modelos básicos
+
+En primer lugar, se construye el objeto de supervivencia combinando el
+tiempo de seguimiento (`Survt`) y el indicador de evento (`Status`), que
+será la variable respuesta en todos los modelos de Cox ajustados a
+continuación.
+
+```{r cox-setup}
+surv_obj <- Surv(time = datos$Survt, event = datos$Status)
+```
+
+**¿Hay empates?**
+
+```{r}
+empates <- table(datos$Survt[datos$Status == 1])
+sum(empates > 1)
+```
+
+No se detectan empates en los tiempos de fallecimiento; por lo tanto, no
+será necesario utilizar las funciones estudiadas para el caso de
+empates.
+
+### Modelo 1: solo tratamiento
+
+Para observar todos los posibles modelos uno a uno, comenzaremos con la
+variable tratamiento mediante Efron.
+
+\begin{align}
+L(\beta)
+= \prod_{i=1}^{k}
+\prod_{l=1}^{m_i}
+\frac{\exp(\eta_i)}
+{\sum_{j \in R(t_i)} \exp(\eta_j)
+- \frac{l-1}{m_i} \sum_{j \in D_i} \exp(\eta_j)}
+\end{align}
+\begin{align}
+\ell(\beta)
+= \sum_{i=1}^{k} \sum_{l=1}^{m_i}
+\left[
+\eta_i
+- \log \left(
+\sum_{j \in R(t_i)} \exp(\eta_j)
+- \frac{l-1}{m_i} \sum_{j \in D_i} \exp(\eta_j)
+\right)
+\right]
+\end{align}
+
+```{r modelo1}
+model1 <- coxph(surv_obj ~ x1, data = datos) #ties=efron
+summary(model1)
+```
+
+El modelo ajustado únicamente con la variable de tratamiento, *x1*,
+proporciona un HR de 1.145 (IC 95%: 1.036–1.264) el intervalo de
+confianza no contiene el valor 1 siendo significativa esta diferencia.
+Como se puede observar, por lo que el resultado es estadísticamente
+significativo (p = 0.008). Esto indica que los pacientes que reciben el
+tratamiento estándar (x1 = 1) presentan un riesgo de fallecimiento
+aproximadamente un 14.5% superior al de los pacientes que reciben el
+nuevo tratamiento, sin ajustar por ninguna otra covariable.
+
+Los tres tests globales del modelo (razón de verosimilitudes, Wald y
+score) coinciden en un p-valor de 0.008, confirmando que el tratamiento
+tiene un efecto significativo sobre la supervivencia. No obstante, el
+índice de concordancia (C = 0.521) es apenas superior al azar (0.5), lo
+que refleja que el tratamiento por sí solo tiene una capacidad
+discriminativa muy limitada y que otras covariables deberán incorporarse
+al modelo para mejorar su ajuste.
+
+### Modelo 2: tratamiento + covariables
+
+A continuación, el Modelo 2 ajusta simultáneamente por todas las
+covariables disponibles.
+
+```{r modelo2}
+model2 <- coxph(surv_obj ~ x1 + x2 + x3 + x4 + x5, data = datos)
+summary(model2)
+```
+
+Al incorporar todas las covariables disponibles, el modelo mejora
+notablemente su ajuste global (p \< 2×10\^-16 en los tres tests) y la
+concordancia sube a C = 0.551. Los resultados variable a variable son:
+
+**Significativas**
+
+-   x1 : Tratamiento (HR = 1.164, IC 95%: 1.054–1.285, p = 0.003): el
+    efecto del tratamiento se mantiene significativo y de magnitud
+    similar al Modelo 1. Controlando por el resto de factores, el
+    tratamiento estándar supone un riesgo de fallecimiento un 16.4%
+    superior al del nuevo tratamiento.
+
+-   x3: Presión arterial sistólica (HR = 1.027, IC 95%: 1.017–1.037, p
+    \< 0.001): cada mmHg adicional de presión al ingreso aumenta el
+    riesgo de fallecimiento un 2.7%, siendo el segundo factor más
+    relevante del modelo.
+
+-   x4: Sexo (HR = 0.698, IC 95%: 0.629–0.775, p \< 0.001): las mujeres
+    (x4 = 1) presentan un riesgo de fallecimiento un 30.2% inferior al
+    de los hombres, siendo la variable con mayor impacto en el modelo.
+
+**No significativas**
+
+-   x2: Edad (HR = 0.996, p = 0.700) y x5 — IMC (HR = 0.994, p = 0.554)
+    no resultan estadísticamente significativas en presencia del resto
+    de covariables.
+
+La mayor precisión del HR para x1 en este modelo (amplitud del IC =
+0.231) respecto al Modelo 1 (amplitud = 0.228) confirma que ajustar por
+covariables de confusión mejora la estimación del efecto del
+tratamiento.
+
+```{r}
+anova(model1)
+model1$loglik
+```
+
+El análisis de la devianza muestra que la incorporación de la variable
+tratamiento (x1) mejora significativamente el ajuste del modelo de Cox
+respecto al modelo nulo. En concreto, el logaritmo de la verosimilitud
+pasa de -10522.40 en el modelo sin covariables a -10518.87 tras incluir
+x1, lo que supone una reducción significativa de la devianza ($\chi^2$
+=7.07, gl = 1, p=0.00784). Por tanto, existe evidencia estadística de
+que la variable tratamiento contribuye de forma significativa a explicar
+el riesgo de fallecimiento.
+
+```{r}
+anova(model2)
+model2$loglik
+anova(model1,model2)
+```
+
+El análisis de la devianza del modelo completo muestra que no todas las
+covariables contribuyen de la misma forma a explicar el riesgo de
+fallecimiento. La variable tratamiento continúa siendo significativa
+mientras que x2 y x5 no presentan evidencia estadística de asociación
+con el riesgo ($p = 0.998$ y $p = 0.554$, respectivamente). Por el
+contrario, las variables x3 y x4 mejoran significativamente el ajuste
+del modelo, con incrementos importantes en la log-verosimilitud
+($\chi^2 = 28.96$, $p < 0.001$ y $\chi^2 = 44.82$, $p < 0.001$,
+respectivamente).
+
+Asimismo, la comparación entre el modelo reducido que únicamente incluye
+x1 y el modelo completo con las cinco covariables indica una mejora
+global significativa del ajuste. El logaritmo de la verosimilitud
+aumenta de $-10518.87$ a $-10481.80$, obteniéndose un estadístico de
+razón de verosimilitudes de $\chi^2 = 74.12$ con 4 grados de libertad
+($p = 3.056 \times 10^{-15}$). Por tanto, el conjunto de covariables
+añadidas aporta información relevante para explicar la supervivencia de
+los pacientes.
+
+### Elección del mejor modelo
+
+El proceso de selección de variables se aborda mediante un procedimiento
+stepwise bidireccional con criterio BIC (Bayesian Information
+Criterion). El punto de partida es un modelo sin ninguna variable, y el
+modelo máximo incluye los cinco efectos principales (x1–x5), junto con
+las interacciones entre el tratamiento (x1) y el resto de covariables,
+ya que el interés central del estudio es evaluar si el efecto del
+tratamiento varía según las características del paciente. En cada paso,
+el algoritmo considera la inclusión o eliminación de términos,
+conservando únicamente aquellos que mejoran el ajuste global del modelo.
+
+La elección del BIC frente al AIC responde a una decisión de parsimonia.
+Ambos criterios penalizan la complejidad del modelo para evitar el
+sobreajuste, pero el BIC es más estricto, ya que penaliza en mayor
+medida el número de variables incluidas en el modelo
+
+```{r seleccion-variables, fig.height=6, fig.width=10, include=FALSE}
+library(MASS)
+
+# Modelo completo con efectos principales e interacciones de x1 con el resto
+modelo_completo <- coxph(
+  surv_obj ~ x1 + x2 + x3 + x4 + x5 +
+             x1:x2 + x1:x3 + x1:x4 + x1:x5,
+  data = datos, ties = "efron"
+)
+
+# Modelo nulo (solo intercepto)
+modelo_nulo <- coxph(surv_obj ~ 1, data = datos, ties = "efron")
+
+# Selección stepwise con BIC
+# k = log(n) usa penalización BIC en lugar de AIC
+n <- nrow(datos)
+modelo_bic <- step(
+  modelo_nulo,
+  scope = list(lower = modelo_nulo, upper = modelo_completo),
+  direction = "both",
+  k = log(n)
+)
+```
+
+El modelo elegido mediante el método stepwise con criterio BIC es el
+siguiente:
+
+```{r}
+summary(modelo_bic)
+```
+
+El mejor modelo no incluye interacciones de primer orden de las
+variables del individuo con el tratamiento aplicado.
+
+También es un resultado relevante que, de la misma manera que en el
+output del modelo 2, se concluye que las variables X2 (edad del
+paciente) y X5 (IMC) no son relevantes para el estudio, dada su no
+significancia.
+
+Por contra, se demuestra que las variables X1 (tratamiento), X3 (Presión
+arterial sistólica registrada al ingreso hospitalario) y X4 (género del
+paciente) sí son significativas para entender el tiempo de
+supervivencia.
+
+La comparación de este modelo con el que contiene todas las variables
+explicativas:
+
+```{r, echo=FALSE}
+# Tabla resumen de criterios
+data.frame(
+  Modelo     = c("Modelo 2 (efectos principales)", "Modelo seleccionado BIC"),
+  AIC        = c(AIC(model2), AIC(modelo_bic)),
+  BIC        = c(BIC(model2), BIC(modelo_bic)),
+  Concordancia = c(summary(model2)$concordance[1],
+                   summary(modelo_bic)$concordance[1])
+) |>
+  kable(digits = 3, caption = "Tabla X. Comparación modelo completo vs seleccionado") |>
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+```
+
+La tabla muestra un resultado ligeramente mejor para el modelo elegido
+con la estrategia stepwise. Este era un resultado esperable teniendo en
+cuenta su no significancia. Eliminar variables que no aportan
+información relevante para explicar la variable endógena (en este caso
+el tiempo de supervivencia) mejora el BIC del modelo.
+
+# Evaluación del supuesto de riesgos proporcionales
+
+Se evalúa el supuesto de proporcionalidad de riesgos del modelo
+seleccionado mediante tres aproximaciones complementarias: el análisis
+gráfico de las curvas log-log, el test formal basado en los residuos de
+Schoenfeld y la inspección visual de dichos residuos a lo largo del
+tiempo.
+
+Los gráficos log-log constituyen uno de los métodos gráficos más
+utilizados para validar la hipótesis de riesgos proporcionales. Si esta
+hipótesis se cumple, las curvas correspondientes a las diferentes
+categorías de las covariables deben mantenerse aproximadamente paralelas
+a lo largo del tiempo. Además, la comparación entre las curvas de
+supervivencia observadas y esperadas permite evaluar de forma visual si
+el ajuste del modelo es adecuado.
+
+Por otro lado, el test de Schoenfeld proporciona una medida formal de
+bondad de ajuste (GOF) para cada covariable del modelo, generando
+p-valores que permiten decidir si existe evidencia estadística de
+incumplimiento de la hipótesis de proporcionalidad. Este procedimiento
+resulta menos subjetivo que la evaluación gráfica, aunque puede no
+detectar algunas desviaciones concretas que sí son apreciables
+visualmente.
+
+Finalmente, la representación gráfica de los residuos de Schoenfeld
+frente al tiempo permite identificar posibles tendencias sistemáticas o
+patrones no aleatorios. En ausencia de violaciones del supuesto de
+riesgos proporcionales, los residuos deberían distribuirse
+aleatoriamente alrededor de cero, sin mostrar estructuras temporales
+definidas.
+
+Dado que la variable presión arterial (x3) es continua, no es posible
+representar directamente las curvas log-log por grupos. Para facilitar
+su evaluación gráfica, se ha categorizado en terciles, creando tres
+grupos de tamaño similar: Bajo, Medio y Alto. Esta discretización es
+únicamente un recurso visual y no afecta a cómo entra la variable en el
+modelo de Cox, donde se mantiene en su escala continua original.
+
+## Método gráfico: curvas log-log
+
+Si los riesgos son proporcionales, las curvas log-log de Kaplan-Meier de
+los distintos grupos deben ser aproximadamente paralelas.
+
+```{r ph-loglog, fig.height=5, fig.width=12, fig.align="center", out.width="100%", echo=FALSE}
+par(mfrow = c(1, 3))
+
+# x1 — Tratamiento
+KM_x1 <- survfit(surv_obj ~ x1, data = datos)
+plot(KM_x1, fun = "cloglog", lty = c(1, 2), col = c("#2E9648", "#E7298A"),
+     xlab = "log(Tiempo)", ylab = "log-log supervivencia",
+     main = "log-log por tratamiento (x1)")
+legend("topleft", c("Nuevo (x1=0)", "Estándar (x1=1)"),
+       lty = c(1, 2), col = c("#2E9648", "#E7298A"), cex = 0.8)
+
+# x3 — Presión arterial (categorizada en terciles para el gráfico)
+datos$x3_cat <- cut(datos$x3, breaks = quantile(datos$x3, c(0, 1/3, 2/3, 1)),
+                    labels = c("Bajo", "Medio", "Alto"), include.lowest = TRUE)
+KM_x3 <- survfit(surv_obj ~ x3_cat, data = datos)
+plot(KM_x3, fun = "cloglog", lty = c(1, 2, 3), col = c(1, 2, 4),
+     xlab = "log(Tiempo)", ylab = "log-log supervivencia",
+     main = "log-log por presión arterial (x3)")
+legend("topleft", c("Bajo", "Medio", "Alto"),
+       lty = c(1, 2, 3), col = c(1, 2, 4), cex = 0.8)
+
+# x4 — Sexo
+KM_x4 <- survfit(surv_obj ~ x4, data = datos)
+plot(KM_x4, fun = "cloglog", lty = c(1, 2), col = c(1, 2),
+     xlab = "log(Tiempo)", ylab = "log-log supervivencia",
+     main = "log-log por sexo (x4)")
+legend("topleft", c("Hombre (x4=0)", "Mujer (x4=1)"),
+       lty = c(1, 2), col = c(1, 2), cex = 0.8)
+
+par(mfrow = c(1, 1))
+```
+
+**Tratamiento (x1): el gráfico genera dudas.** Las curvas de los dos
+grupos son aproximadamente paralelas a lo largo de gran parte del
+gráfico, pero se separan en el extremo inferior. La conclusión sobre el
+cumplimiento del supuesto de riesgos proporcionales dependerá de la
+información que den los otros métodos.
+
+**Presión arterial (x3): el supuesto es dudoso.** Las curvas presentan
+un comportamiento que hace sospechar del incumplimiento del supuesto de
+riesgos proporcionales, especialmente para las curvas de niveles medio y
+alto, se puede observar la existencia de cruces a los días (10, 20, 30 y
+50)
+
+**Sexo (x4): el supuesto es cuestionable.** Las curvas de hombres y
+mujeres también se cruzan en los días 200, sobre todo en el extremo
+derecho del gráfico, lo que sugiere que la diferencia en el riesgo entre
+ambos sexos varía según el momento en que nos encontremos del
+seguimiento. En el final del proceso parace que la diferencia entre sexo
+tiende cada vez a insignificancia.
+
+## Test de Schoenfeld
+
+El test de Schoenfeld contrasta formalmente la hipótesis nula de
+proporcionalidad de riesgos para cada covariable. P-valores elevados (p
+\> 0.05) indican que no hay evidencia para rechazar el supuesto.
+
+```{r ph-test-schoenfeld, echo=FALSE}
+modelo_bic <- coxph(surv_obj ~ x4 + x3 + x1, data = datos, ties = "efron")
+test_ph <- cox.zph(modelo_bic)
+print(test_ph)
+```
+
+Los resultados del test de Schoenfeld confirman en parte lo observado
+gráficamente. La variable sexo (x4) muestra una violación clara del
+supuesto, con un p-valor muy pequeño (p \< 0.001), lo que indica que su
+efecto sobre el riesgo no es constante a lo largo del tiempo. Por el
+contrario, la presión arterial (x3) y el tratamiento (x1) no presentan
+evidencia estadística en contra del supuesto, con p-valores de 0.26 y
+0.16 respectivamente. El contraste global también resulta significativo,
+arrastrado principalmente por el sexo. En consecuencia, habría que
+abordar la no proporcionalidad del sexo antes de interpretar los
+coeficientes del modelo, por ejemplo estratificando por esta variable.
+
+## Residuos de Schoenfeld
+
+Si el supuesto de proporcionalidad se cumple, los residuos de Schoenfeld
+deben distribuirse aleatoriamente alrededor de cero a lo largo del
+tiempo, sin mostrar ninguna tendencia sistemática.
+
+```{r ph-residuos, fig.height=4, fig.width=12, out.width="100%", fig.align="center", echo=FALSE}
+par(mfrow = c(1, 3))
+plot(test_ph, var = 1, main = "Residuos Schoenfeld, x4 (Sexo)")
+abline(h = 0, lty = 2, col = "red")
+plot(test_ph, var = 2, main = "Residuos Schoenfeld, x3 (Presión arterial)")
+abline(h = 0, lty = 2, col = "red")
+plot(test_ph, var = 3, main = "Residuos Schoenfeld, x1 (Tratamiento)")
+abline(h = 0, lty = 2, col = "red")
+par(mfrow = c(1, 1))
+```
+
+Los gráficos de residuos de Schoenfeld refuerzan las conclusiones
+anteriores.
+
+En el caso del sexo (x4), los residuos muestran una tendencia
+ondulatoria muy marcada a lo largo del tiempo, lejos de distribuirse
+aleatoriamente alrededor de cero, lo que confirma la violación del
+supuesto.
+
+Para la presión arterial (x3), los residuos se dispersan de forma
+irregular alrededor de cero sin mostrar ningún patrón claro, lo que es
+consistente con el cumplimiento del supuesto.
+
+El tratamiento (x1) presenta un comportamiento algo más llamativo: los
+residuos forman dos bandas claramente separadas, lo que se debe a que es
+una variable binaria y no indica un problema de proporcionalidad en sí
+mismo, siendo además coherente con el p-valor no significativo del test
+de Schoenfeld. Se observa algun residuo outlier en la parte derecha del
+gráfico, pero en general el comportamiento parece el esperado para poder
+aceptar riesgos proporcionales.
+
+En conclusión, tanto el tratamiento (x1) como la presión arterial (x3)
+pueden considerarse compatibles con el supuesto de riesgos
+proporcionales, a la vista del análisis gráfico y del test de
+Schoenfeld. El sexo (x4), en cambio, viola claramente el supuesto y
+deberá tratarse de forma adecuada antes de interpretar los resultados
+del modelo, por ejemplo mediante estratificación.
+
+## Extra
+
+El diagnóstico del modelo de Cox se complementa mediante el análisis de
+distintos tipos de residuos, con el objetivo de evaluar la adecuación
+del ajuste y la validez de los supuestos del modelo. En particular, los
+residuos de devianza permiten identificar posibles observaciones
+atípicas o influyentes en el conjunto de datos, mientras que los
+residuos de Schoenfeld se utilizan para evaluar el supuesto de
+proporcionalidad de riesgos asociado a cada covariable.
+
+El análisis conjunto de estos residuos proporciona una visión más
+completa del comportamiento del modelo.
+
+```{r residuos-modelo, fig.height=4, fig.width=12, out.width="100%", fig.align="center", echo=FALSE}
+
+# Residuos de devianza (observaciones individuales)
+resdev <- residuals(modelo_bic, type = "deviance")
+plot(resdev,
+     main = "Residuos de devianza",
+     ylab = "Residuales",
+     xlab = "Índice")
+abline(h = 0, lty = 2, col = "red")
+
+# Residuos de Schoenfeld (por predictor)
+ressch <- residuals(modelo_bic, type = "schoenfeld")
+
+par(mfrow = c(1, 3),
+    mar = c(4, 4, 2, 1),
+    oma = c(0, 0, 2, 0))
+
+plot(ressch[,1],
+     main = "Schoenfeld - x1",
+     ylab = "Residuales",
+     xlab = "Tiempo")
+abline(h = 0, lty = 2, col = "red")
+
+plot(ressch[,2],
+     main = "Schoenfeld - x2",
+     ylab = "Residuales",
+     xlab = "Tiempo")
+abline(h = 0, lty = 2, col = "red")
+
+plot(ressch[,3],
+     main = "Schoenfeld - x3",
+     ylab = "Residuales",
+     xlab = "Tiempo")
+abline(h = 0, lty = 2, col = "red")
+
+mtext("Residuos de Schoenfeld", outer = TRUE, cex = 1.2)
+
+par(mfrow = c(1, 1))
+```
+
+## Observadas vs esperadas
+
+El análisis del supuesto de proporcionalidad de riesgos puede
+complementarse mediante la comparación entre las curvas de supervivencia
+observadas y las curvas esperadas a partir del modelo de Cox ajustado.
+Este enfoque permite evaluar de forma visual la adecuación del modelo,
+contrastando el comportamiento empírico de los datos con el
+comportamiento teórico implícito en el modelo estimado.
+
+En particular, si el supuesto de riesgos proporcionales se cumple, se
+espera que las curvas observadas y esperadas presenten una evolución
+similar dentro de cada categoría de las covariables, manteniendo
+diferencias aproximadamente constantes a lo largo del tiempo. Por el
+contrario, desviaciones sistemáticas entre ambas curvas pueden indicar
+posibles violaciones del supuesto.
+
+En este análisis se estudian de forma separada las covariables del
+modelo, con el objetivo de valorar si su efecto sobre la supervivencia
+se mantiene proporcional en el tiempo.
+
+A continuación, los tres gráficos muestran curvas de supervivencia
+observadas versus esperadas para tres covariables clínicas en el
+contexto de un modelo de Cox. En cada gráfico, el eje vertical
+representa la probabilidad de supervivencia (de 0 a 1) y el eje
+horizontal representa el tiempo (hasta aproximadamente 700 unidades).
+Las líneas continuas corresponden a las curvas observadas y las líneas
+discontinuas o punteadas a las esperadas por el modelo.
+
+```{r obs-vs-esp, fig.height=5, fig.width=12, fig.align="center", out.width="100%", echo=FALSE}
+
+par(mfrow = c(1, 3))
+
+### =========================
+### x1 — Tratamiento
+### =========================
+
+# Observadas (KM)
+KM_x1 <- survfit(surv_obj ~ x1, data = datos)
+
+# Esperadas (modelo Cox ajustado)
+model_x1 <- coxph(surv_obj ~ x1 + x3 + x4, data = datos, ties = "efron")
+
+pattern0 <- data.frame(x1 = 0, x3 = mean(datos$x3), x4 = mean(datos$x4))
+pattern1 <- data.frame(x1 = 1, x3 = mean(datos$x3), x4 = mean(datos$x4))
+
+exp0 <- survfit(model_x1, newdata = pattern0)
+exp1 <- survfit(model_x1, newdata = pattern1)
+
+plot(KM_x1, col = c(1,2), lty = c(1,2),
+     xlab = "Tiempo", ylab = "Supervivencia",
+     main = "tratamiento (x1): observadas vs esperadas")
+
+lines(exp0, col = 1, lty = 3)
+lines(exp1, col = 2, lty = 4)
+
+legend("topright",
+       c("Obs x1=0","Obs x1=1","Esp x1=0","Esp x1=1"),
+       col = c(1,2,1,2),
+       lty = c(1,2,3,4),
+       cex = 0.8)
+
+### =========================
+### x3 — Presión arterial
+### =========================
+
+datos$x3_cat <- cut(datos$x3,
+                    breaks = quantile(datos$x3, c(0,1/3,2/3,1)),
+                    labels = c("Bajo","Medio","Alto"),
+                    include.lowest = TRUE)
+
+KM_x3 <- survfit(surv_obj ~ x3_cat, data = datos)
+
+model_x3 <- coxph(surv_obj ~ x1 + x3 + x4, data = datos)
+
+patternB <- data.frame(x1 = mean(datos$x1), x3 = quantile(datos$x3, 1/6), x4 = mean(datos$x4))
+patternM <- data.frame(x1 = mean(datos$x1), x3 = quantile(datos$x3, 1/2), x4 = mean(datos$x4))
+patternA <- data.frame(x1 = mean(datos$x1), x3 = quantile(datos$x3, 5/6), x4 = mean(datos$x4))
+
+expB <- survfit(model_x3, newdata = patternB)
+expM <- survfit(model_x3, newdata = patternM)
+expA <- survfit(model_x3, newdata = patternA)
+
+plot(KM_x3, col = c(1,2,4), lty = c(1,2,3),
+     xlab = "Tiempo", ylab = "Supervivencia",
+     main = "Presión arterial x3: observadas vs esperadas")
+
+lines(expB, col = 1, lty = 3)
+lines(expM, col = 2, lty = 3)
+lines(expA, col = 4, lty = 3)
+
+legend("topright",
+       c("Bajo","Medio","Alto"),
+       col = c(1,2,4),
+       lty = c(1,2,3),
+       cex = 0.8)
+
+### =========================
+### x4 — Sexo
+### =========================
+
+KM_x4 <- survfit(surv_obj ~ x4, data = datos)
+
+model_x4 <- coxph(surv_obj ~ x1 + x3 + x4, data = datos)
+
+pattern0 <- data.frame(x1 = mean(datos$x1), x3 = mean(datos$x3), x4 = 0)
+pattern1 <- data.frame(x1 = mean(datos$x1), x3 = mean(datos$x3), x4 = 1)
+
+exp0 <- survfit(model_x4, newdata = pattern0)
+exp1 <- survfit(model_x4, newdata = pattern1)
+
+plot(KM_x4, col = c(1,2), lty = c(1,2),
+     xlab = "Tiempo", ylab = "Supervivencia",
+     main = " sexo x4: observadas vs esperadas")
+
+lines(exp0, col = 1, lty = 3)
+lines(exp1, col = 2, lty = 4)
+
+legend("topright",
+       c("Obs x4=0","Obs x4=1","Esp x4=0","Esp x4=1"),
+       col = c(1,2,1,2),
+       lty = c(1,2,3,4),
+       cex = 0.8)
+
+par(mfrow = c(1,1))
+```
+
+En el caso del tratamiento (x1) y el sexo (x4), ambas variables binarias, las curvas observadas y esperadas se aproximan razonablemente bien entre sí, lo que indica que el modelo de Cox captura adecuadamente el efecto de estas covariables sobre la supervivencia. No obstante, la variable sexo (x4) muestra ciertos indicios de incumplimiento del supuesto de proporcionalidad.
+
+Sin embargo, el gráfico de la presión arterial (x3), categorizada en
+tres niveles (Bajo, Medio y Alto), muestra discrepancias más notables
+entre las curvas observadas y las esperadas, especialmente en los grupos
+extremos. Esto podría indicar que la relación entre la presión arterial
+y el riesgo de evento no es capturada correctamente por el modelo en su
+forma actual, ya sea por una violación del supuesto de riesgos
+proporcionales o por una categorización que no refleja adecuadamente el
+efecto real de esta variable, lo que sugeriría revisar su especificación
+en el modelo.
+
+# Alternativa 
+
+Después de observar de todas la proporcionalidad de las variables para el modelo escogido con las variables consideradas que daban información en el modelo. Tras el anàlisis mediante diferentes mètodos se observa que la variable que hace referencia a sexo no sigue la hipotesis de proporcionalidad, por lo tanto se considera hacer un modelo estratificando por esa variable. 
+
+## Modelo de Cox estratificado
+
+Como alternativa al modelo de Cox estándar, se considera un modelo de Cox estratificado utilizando la variable x4 como factor de estratificación.
+
+El modelo se ajusta mediante:
+
+```{r}
+modelo_estrat <- coxph(
+  Surv(Survt, Status) ~ x1 + x2 + x3 + x5 + strata(x4),
+  data = datos,
+  method = "efron"
+)
+
+summary(modelo_estrat)
+```
+
+El modelo de Cox ajustado presenta un total de 2000 individuos y 1595 eventos observados. Los resultados obtenidos muestran que las variables tratamiento (x1) y presión arterial sistólica (x3) continúan siendo estadísticamente significativas tras la estratificación por sexo. En particular, el tratamiento estándar presenta un hazard ratio de 1.15 (IC 95%: 1.04–1.27), lo que indica un incremento aproximado del 15% en el riesgo de fallecimiento respecto al nuevo tratamiento. 
+
+Asimismo, la presión arterial sistólica mantiene un efecto positivo sobre el riesgo, con un incremento aproximado del 2.8% por unidad adicional de presión arterial.
+
+Por el contrario, las variables edad (x2) e IMC (x5) no resultan estadísticamente significativas dentro del modelo estratificado.
+
+En conjunto, los tres contrastes globales del modelo (razón de
+verosimilitudes, Wald y log-rank) coinciden en que el modelo es
+altamente significativo ($p < 1 \times 10^{-7}$). Además, el índice de concordancia del modelo (C = 0.551) se mantiene prácticamente idéntico al obtenido en el modelo de Cox estándar, lo que indica una capacidad predictiva moderada del modelo para discriminar entre individuos con distintos tiempos de
+supervivencia.
+
+En consecuencia, el modelo estratificado permite controlar adecuadamente el posible incumplimiento del supuesto de riesgos proporcionales asociado a la variable sexo, manteniendo una interpretación estable del efecto del resto de covariables.
+
+```{r, fig.align='center', fig.width=7, fig.height=5}
+# Modelo estratificado por sexo
+model_obs <- coxph(
+  surv_obj ~ x1 + x3 + strata(x4),
+  data = datos,
+  ties = "efron"
+)
+
+# Curvas observadas por estratos
+smodel_obs <- survfit(model_obs)
+
+# Modelo no estratificado para obtener curvas esperadas
+model_esp <- coxph(
+  surv_obj ~ x1 + x3 + x4,
+  data = datos,
+  ties = "efron"
+)
+
+# Patrones medios para las curvas esperadas
+pattern0 <- data.frame(
+  x1 = mean(datos$x1),
+  x3 = mean(datos$x3),
+  x4 = 1
+)
+
+pattern1 <- data.frame(
+  x1 = mean(datos$x1),
+  x3 = mean(datos$x3),
+  x4 = 2
+)
+
+# Curvas esperadas
+smodel_esp0 <- survfit(model_esp, newdata = pattern0)
+smodel_esp1 <- survfit(model_esp, newdata = pattern1)
+
+# Representación gráfica
+par(mar = c(5,5,4,2))
+
+plot(smodel_obs,
+     lty = c(1,2),
+     lwd = c(3,3),
+     col = c(1,2),
+     xlab = "Tiempo de supervivencia",
+     ylab = "Probabilidad de supervivencia",
+     main = "Curvas observadas vs esperadas para x4")
+
+# Curva esperada x4 = 1
+lines(smodel_esp0,
+      conf.int = FALSE,
+      lty = 3,
+      lwd = 2,
+      col = 3)
+
+# Curva esperada x4 = 2
+lines(smodel_esp1,
+      conf.int = FALSE,
+      lty = 4,
+      lwd = 2,
+      col = 4)
+
+legend("topright",
+       c("x4 = 1 observada",
+         "x4 = 2 observada",
+         "x4 = 1 esperada",
+         "x4 = 2 esperada"),
+       lty = c(1,2,3,4),
+       lwd = c(3,3,2,2),
+       col = c(1,2,3,4),
+       cex = 0.7,
+       bty = "n")
+```
+
+El gráfico muestra las curvas de supervivencia observadas y esperadas para los distintos estratos definidos por la variable sexo (x4). Se observan ciertas diferencias entre ambas curvas, especialmente en algunos intervalos del seguimiento. Este comportamiento sugiere que el efecto del sexo podría no permanecer constante a lo largo del tiempo y, por tanto, que dicha variable podría no cumplir completamente el supuesto de riesgos proporcionales cuando se consideran conjuntamente el resto de covariables del modelo.
+
+Por tanto, la estratificación por sexo constituye una estrategia adecuada para mejorar el ajuste del modelo y relajar la hipótesis de riesgos proporcionales para esta variable.
+
+Adicionalmente, se consideró un modelo estratificado con términos de interacción entre las covariables y el sexo, con el objetivo de evaluar si los efectos del tratamiento y de la presión arterial diferían entre estratos.
+
+```{r}
+datos$x4_bin <- ifelse(datos$x4 == 2, 1, 0)
+
+modelo_estrat_sin_int <- coxph(
+  surv_obj ~ x1 + x3 + strata(x4),
+  data = datos,
+  ties = "efron"
+)
+
+modelo_estrat_con_int <- coxph(
+  surv_obj ~ x1 + x3 + x1:x4_bin + x3:x4_bin + strata(x4),
+  data = datos,
+  ties = "efron"
+)
+
+anova(modelo_estrat_sin_int, modelo_estrat_con_int, test = "LRT")
+```
+
+Sin embargo, el contraste de razón de verosimilitudes no muestra una mejora significativa del ajuste al incorporar interacciones (p = 0.8003). Por tanto, no existe evidencia suficiente de efectos diferenciales relevantes entre estratos y se mantiene el modelo estratificado sin interacción al no aportar una mejora significativa del ajuste.
+
+## Modelo Ampliado 
+
+Tras evaluar la hipótesis de riesgos proporcionales en el modelo de Cox seleccionado, se observó que la variable \texttt{sexo} no cumple dicha hipótesis. Para ello se analizaron diferentes métodos gráficos y estadísticos, así como la inclusión de términos dependientes del tiempo.
+
+El modelo de Cox proporcional se define como:
+
+$$
+h(t \mid X)=h_0(t)\exp\left(\sum_{j=1}^{p}\beta_j X_j\right)
+$$
+
+donde $h_0(t)$ representa la función de riesgo basal y $\beta_j$ el efecto asociado a cada covariable $X_j$.
+
+Para evaluar la proporcionalidad se consideró un modelo extendido con interacción temporal:
+
+$$
+h(t \mid X)=h_0(t)\exp\left(\beta X + \delta X g(t)\right)
+$$
+
+Si el parámetro $\delta$ resulta significativamente distinto de cero, la hipótesis de riesgos proporcionales no se cumple, ya que el efecto de la covariable depende del tiempo.
+
+En el caso de la variable \texttt{sexo}, los resultados obtenidos mostraron evidencia de no proporcionalidad. Por este motivo, se optó por ajustar un modelo de Cox estratificado, permitiendo diferentes funciones de riesgo basal para cada estrato definido por dicha variable:
+
+$$
+h_k(t \mid X)=h_{0k}(t)\exp\left(\sum_{j=1}^{p}\beta_j X_j\right)
+$$
+
+donde $k$ representa cada estrato asociado al sexo. De este modo, se mantiene el efecto de las demás covariables mientras se relaja la hipótesis de proporcionalidad para la variable estratificada.
+
+En el caso de que, tras intentar estratificar el modelo, se observe que alguna covariable presenta dependencia temporal, esto implica que su efecto no es independiente del tiempo de supervivencia y, por tanto, no se cumple la hipótesis de riesgos proporcionales como seria en nuestro caso. 
+
+En esta situación, puede considerarse un modelo de Cox extendido incorporando variables dependientes del tiempo. La formulación general del modelo es:
+
+$$
+h(t \mid X)=h_0(t)\exp\left(\sum_{j=1}^{p}\beta_j X_j + \sum_{j=1}^{q}\delta_j X_j(t)\right)
+$$
+
+donde $X_j(t)$ representa covariables dependientes del tiempo y $\delta_j$ cuantifica su efecto sobre el riesgo.
+
+También puede incorporarse una interacción entre la covariable y una función del tiempo:
+
+$$
+h(t \mid X)=h_0(t)\exp\left(\beta X + \delta X g(t)\right)
+$$
+
+siendo $g(t)$ una función temporal, como por ejemplo $g(t)=t$ o $g(t)=\log(t)$.
+
+La significación estadística del parámetro $\delta$ indica que el efecto de la covariable varía a lo largo del tiempo, evidenciando la falta de proporcionalidad de riesgos.
+
+Consideramos que la variable \texttt{sexo} podría presentar dependencia temporal debido a los diferentes cruces observados en las curvas de supervivencia en determinadas semanas específicas, comentados anteriormente. Este comportamiento sugiere que el efecto de dicha variable sobre el riesgo no se mantiene constante a lo largo del tiempo, incumpliéndose así la hipótesis de riesgos proporcionales.
+
+Para tener en cuenta esta posible variación temporal, puede plantearse un modelo de Cox extendido incorporando una interacción entre la variable \texttt{sexo} y una función del tiempo:
+
+$$
+h(t \mid X)=h_0(t)\exp\left(\beta_1 \, \texttt{sexo} + \delta_1 \, \texttt{sexo}\cdot g(t)\right)
+$$
+
+donde $g(t)$ representa una función del tiempo, por ejemplo $g(t)=t$ o $g(t)=\log(t)$. Si el coeficiente $\delta_1$ resulta significativo, se concluye que el efecto de la variable \texttt{sexo} varía a lo largo del tiempo.
+
+Antes de todo comprabamos todas la variables: 
+
+```{r}
+datos.cp <- survSplit(
+  Surv(Survt, Status) ~ .,
+  data    = datos,
+  cut     = datos$Survt[datos$Status == 1],  # cortes en cada tiempo de evento
+  end     = "Survt",
+  event   = "Status",
+  start   = "start",
+  id      = "id"
+)
+
+# covariable dependiente del tiempo: x4 * log(t)
+datos.cp$tStop  <- datos.cp$Survt                        
+datos.cp$tmid   <- (datos.cp$start + datos.cp$Survt) / 2 
+datos.cp$x4_t   <- datos.cp$x4 * log(datos.cp$tmid)     
+
+# objeto de supervivencia en formato (start, stop] 
+Y_cp <- Surv(datos.cp$start, datos.cp$Survt, datos.cp$Status)
+
+# 4. Modelo de Cox extendido
+modelo_ext <- coxph(
+  Y_cp ~ x1 + x3 + x4 + x4_t,
+  data = datos.cp,
+  ties = "efron"
+)
+summary(modelo_ext)
+```
+
+El modelo de Cox extendido incorporando la interacción *x4·log(t)* como covariable dependiente del tiempo no ha resultado satisfactorio para capturar la no proporcionalidad del sexo. 
+
+El término de interacción \(x4\_t\) presenta un coeficiente \(\beta = 0.041\) no significativo (\(p = 0.461\)), lo que indica que una función monótona del tipo \(\log(t)\) es incapaz de modelar adecuadamente la variación temporal del efecto del sexo. Este resultado no contradice las conclusiones del test de Schoenfeld (\(p = 1.8 \times 10^{-14}\)), sino que revela que la naturaleza de la no proporcionalidad es más compleja: como se observó en los gráficos log-log y en los residuos de Schoenfeld, las curvas de supervivencia de hombres y mujeres se cruzan aproximadamente en el día 200, de modo que el efecto del sexo cambia de signo a lo largo del seguimiento.
+
+Una interacción lineal con \(\log(t)\) solo puede capturar tendencias monótonas crecientes o decrecientes, pero no un cambio de dirección del efecto. Por ello, se considera una alternativa más adecuada basada en funciones de cambio de punto (\textit{Heaviside}), que permiten que el efecto de la covariable tome valores distintos antes y después del momento del cruce.
+
+En las curvas observadas separadas por la variable x4=sexo se podía ver como había ciertos puntos en que ambas curvas cambiaban su tendencia y adoptaban un nuevo pendiente, que se mantenía hasta que, de manera simultanea, ambas curvas alcanzaban un nuevo punto de inflexión. Recordamos el gráfico:
+
+
+```{r, echo=FALSE}
+
+
+km_x4 <- survfit(Surv(Survt, Status) ~ x4, data = datos)
+
+km_df <- data.frame(
+  time   = km_x4$time,
+  surv   = km_x4$surv,
+  strata = rep(names(km_x4$strata), km_x4$strata)
+)
+
+cat("Estratos disponibles:", names(km_x4$strata), "\n")
+
+inflexiones_segmentos <- function(df, estrato, n_segmentos = 10, n_top = 3) {
+  
+  d <- subset(df, strata == estrato)
+  d <- d[order(d$time), ]
+  
+  t_min <- min(d$time)
+  t_max <- max(d$time)
+  
+  cortes <- seq(t_min, t_max, length.out = n_segmentos + 1)
+  
+  pendientes <- numeric(n_segmentos)
+  t_centro   <- numeric(n_segmentos)
+  
+  for (i in seq_len(n_segmentos)) {
+    seg <- d[d$time >= cortes[i] & d$time < cortes[i + 1], ]
+    if (nrow(seg) >= 2) {
+      pendientes[i] <- (tail(seg$surv, 1) - head(seg$surv, 1)) /
+                       (tail(seg$time, 1) - head(seg$time, 1))
+    } else {
+      pendientes[i] <- NA
+    }
+    t_centro[i] <- (cortes[i] + cortes[i + 1]) / 2
+  }
+  
+  cambio   <- abs(diff(pendientes))
+  t_cambio <- cortes[-c(1, length(cortes))]
+  
+  idx_top <- order(cambio, decreasing = TRUE)[seq_len(n_top)]
+  
+  sort(round(t_cambio[idx_top]))
+}
+
+inf_1 <- inflexiones_segmentos(km_df, estrato = "x4=1", n_segmentos = 12, n_top = 3)
+inf_2 <- inflexiones_segmentos(km_df, estrato = "x4=2", n_segmentos = 12, n_top = 3)
+
+cat("Inflexiones x4=1 (hombres):", inf_1, "\n")
+cat("Inflexiones x4=2 (mujeres):", inf_2, "\n")
+
+# ── Gráfico ──
+plot(km_x4,
+     col = c(1, 2), lty = c(1, 2), lwd = 3,
+     xlab = "Tiempo de supervivencia",
+     ylab = "Probabilidad de supervivencia",
+     main = "Inflexiones en curvas KM observadas por sexo")
+
+abline(v = inf_1, col = 1, lty = 3, lwd = 1.5)
+abline(v = inf_2, col = 2, lty = 3, lwd = 1.5)
+
+text(x = inf_1 + 8, y = 0.05, labels = paste0("d=", inf_1),
+     col = 1, cex = 0.75, srt = 0, adj = 0)
+
+text(x = inf_2 + 8, y = 0.10, labels = paste0("d=", inf_2),
+     col = 2, cex = 0.75, srt = 0, adj = 0)
+
+legend("topright",
+       c("x4=1 obs (hombres)", "x4=2 obs (mujeres)",
+         "Inflexión x4=1", "Inflexión x4=2"),
+       col = c(1, 2, 1, 2),
+       lty = c(1, 2, 3, 3),
+       lwd = c(3, 3, 1.5, 1.5),
+       cex = 0.75, bty = "n")
+```
+El gráfico muestra con claridad que ambas curvas de supervivencia, la de hombres y la de mujeres, cambian de pendiente en momentos muy similares: alrededor de los días 122–123, 365–366 y 607–609. Es decir, aproximadamente a los 4 meses, al año y a los 20 meses del seguimiento, ambos grupos experimentan simultáneamente un cambio en la velocidad con la que se producen los fallecimientos.
+
+Este comportamiento indica que el efecto del sexo sobre el riesgo no se mantiene estable a lo largo del tiempo, algo que ya habíamos detectado anteriormente mediante el test de Schoenfeld y los gráficos de residuos. En otras palabras, la diferencia entre hombres y mujeres no es la misma en todos los momentos del seguimiento, sino que varía según la etapa en que nos encontremos.
+
+Para tener en cuenta esta realidad, se adoptan dos estrategias: estratificar el modelo por sexo, de modo que cada grupo tenga su propia curva de riesgo basal, e incorporar funciones de cambio de punto con cortes en los días identificados, que permiten que el efecto del sexo tome valores distintos en cada tramo del seguimiento.
+
+## Modelo ampliado con puntos de corte
+
+Dado que ambas curvas presentan cambios de pendiente en los mismos días, se ajusta un modelo de Cox ampliado con tres funciones de cambio de punto (Heaviside) con cortes en los días 123, 366 y 607, comunes para ambos sexos.
+
+```{r}
+# Crear los cortes en los días identificados
+dcp_3 <- survSplit(
+  Surv(Survt, Status) ~ .,
+  data  = datos,
+  cut   = c(123, 366, 607),
+  end   = "Survt",
+  event = "Status",
+  start = "start",
+  id    = "id"
+)
+
+# Funciones de cambio de punto para x4
+dcp_3$hv1 <- dcp_3$x4 * as.integer(dcp_3$Survt <= 123)
+dcp_3$hv2 <- dcp_3$x4 * as.integer(dcp_3$Survt > 123 & dcp_3$Survt <= 366)
+dcp_3$hv3 <- dcp_3$x4 * as.integer(dcp_3$Survt > 366 & dcp_3$Survt <= 607)
+dcp_3$hv4 <- dcp_3$x4 * as.integer(dcp_3$Survt > 607)
+
+Y_3 <- Surv(dcp_3$start, dcp_3$Survt, dcp_3$Status)
+
+modelo_hv3 <- coxph(
+  Y_3 ~ x1 + x3 + hv1 + hv2 + hv3 + hv4 + cluster(id),
+  data = dcp_3,
+  ties = "efron"
+)
+
+summary(modelo_hv3)
+
+```
+El modelo ampliado con funciones de cambio de punto en los días 123, 366 y 607 confirma que el efecto del sexo varía de forma notable a lo largo del seguimiento, con cambios de dirección que justifican que ni el modelo estándar ni una simple interacción con log(t) fueran suficientes para capturar esta circunstancia.
+
+En el primer tramo (0–123 días), las mujeres presentan un riesgo de fallecimiento muy inferior al de los hombres (HR = 0.153, IC 95%: 0.108–0.216, p < 0.001). En esta fase inicial, los hombres tienen aproximadamente 6.5 veces más riesgo de fallecer que las mujeres.
+
+En el segundo tramo (123–366 días), el efecto se invierte: las mujeres pasan a tener un riesgo 5.4 veces superior al de los hombres (HR = 5.396, IC 95%: 4.251–6.850, p < 0.001). Es precisamente este cruce el que hace incorrecto el uso de una función monótona como log(t) para reflejar el efecto del tiempo sobre el tiempo de supervivencia.
+
+En el tercer tramo (366–607 días), el efecto vuelve a invertirse: los hombres recuperan un riesgo aproximadamente 6 veces mayor que las mujeres (HR = 0.165, IC 95%: 0.132–0.208, p < 0.001), de magnitud similar al primer tramo.
+
+En el cuarto tramo (más de 607 días), el efecto del sexo desaparece (HR = 0.902, IC 95%: 0.614–1.326, p = 0.601), indicando que en la fase final del seguimiento no existe diferencia significativa entre sexos en el riesgo de fallecimiento.
+
+Respecto al resto de variables, el tratamiento (x1) mantiene su efecto significativo (HR = 1.151, IC 95%: 1.043–1.269, p = 0.005), confirmando que el tratamiento estándar supone un riesgo aproximadamente un 15% superior al nuevo tratamiento. La presión arterial (x3) también se mantiene significativa (HR = 1.028, IC 95%: 1.018–1.038, p < 0.001), con un incremento del riesgo del 2.8% por cada unidad adicional.
+
+Finalmente, el índice de concordancia alcanza C = 0.694, frente al C = 0.551 del modelo estándar y el C = 0.551 del modelo estratificado, lo que supone una mejora sustancial en la capacidad predictiva del modelo y confirma que las funciones de cambio de punto capturan aspectos relevantes de la dinámica temporal del efecto del sexo que los modelos anteriores no recogían.
+
+**Comparación con modelo estratificado**
+
+Aunque la mejora en el índice de concordancia ya apunta claramente a favor del modelo ampliado con funciones de cambio de punto (C = 0.694 frente a C = 0.551 del modelo estratificado), resulta conveniente complementar esta comparación con criterios formales basados en el ajuste del modelo. A continuación se comparan ambos modelos en términos de AIC y mediante un test de razón de verosimilitudes.
+
+```{r, echo=FALSE}
+library(knitr)
+library(kableExtra)
+# Versiones sin cluster para comparación por AIC
+modelo_estrat_base <- coxph(
+  Y_3 ~ x1 + x3 + strata(x4),
+  data = dcp_3,
+  ties = "efron"
+)
+
+modelo_hv3_comp <- coxph(
+  Y_3 ~ x1 + x3 + hv1 + hv2 + hv3 + hv4,
+  data = dcp_3,
+  ties = "efron"
+)
+tabla_comp <- data.frame(
+  Modelo       = c("Estratificado", "Ampliado Heaviside"),
+  LogLik       = round(c(modelo_estrat_base$loglik[2], modelo_hv3_comp$loglik[2]), 2),
+  Parámetros   = c(2, 6),
+  AIC          = round(c(AIC(modelo_estrat_base), AIC(modelo_hv3_comp)), 2),
+  Concordancia = c(0.551, 0.694)
+)
+kable(tabla_comp,
+      caption  = "Comparación entre modelo estratificado y modelo ampliado con Heaviside",
+      align    = c("l", "r", "r", "r", "r"),
+      booktabs = TRUE) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover"),
+    full_width        = FALSE,
+    position          = "center"
+  ) %>%
+  row_spec(0,
+           bold       = TRUE,
+           color      = "white",
+           background = "#2C7BB6")
+```
+El modelo estratificado tiene un AIC más bajo (18793 frente a 20243), lo que podría interpretarse como que ajusta mejor los datos. Sin embargo, esta comparación no es completamente directa, ya que los dos modelos tratan el sexo de maneras muy distintas: uno lo absorbe en la curva de riesgo base sin cuantificarlo, y el otro lo estima explícitamente en cada tramo temporal.
+
+Donde sí hay una diferencia clara es en la concordancia: el modelo ampliado con cambios de punto alcanza un valor de 0.694 frente al 0.551 del estratificado. Esto significa que el modelo ampliado es bastante mejor a la hora de distinguir qué pacientes tienen más o menos riesgo de fallecer.
+
+En definitiva, si lo que nos interesa es simplemente tener en cuenta el sexo para estimar mejor el efecto del tratamiento, el modelo estratificado es suficiente y más sencillo. Pero si queremos entender cómo cambia el efecto del sexo a lo largo del seguimiento, el modelo ampliado con puntos de cambio es claramente preferible.
