@@ -808,35 +808,6 @@ cuenta su no significancia. Eliminar variables que no aportan
 información relevante para explicar la variable endógena (en este caso
 el tiempo de supervivencia) mejora el BIC del modelo.
 
-## Modelo de Cox estratificado
-
-Como alternativa al modelo de Cox estándar, se considera un modelo de Cox estratificado utilizando la variable x4 como factor de estratificación.
-
-El modelo se ajusta mediante:
-```{r}
-modelo_estrat <- coxph(
-  Surv(Survt, Status) ~ x1 + x2 + x3 + x5 + strata(x4),
-  data = datos,
-  method = "efron"
-)
-
-summary(modelo_estrat)
-```
-El modelo de Cox ajustado presenta un total de 2000 individuos y 1595 eventos observados. Los resultados obtenidos muestran que las variables tratamiento (x1) y presión arterial sistólica (x3) continúan siendo estadísticamente significativas tras la estratificación por sexo. En particular, el tratamiento estándar presenta un hazard ratio de 1.15 (IC 95%: 1.04–1.27), lo que indica un incremento aproximado del 15% en el riesgo de fallecimiento respecto al nuevo tratamiento. 
-
-Asimismo, la presión arterial sistólica mantiene un efecto positivo sobre el riesgo, con un incremento aproximado del 2.8% por unidad adicional de presión arterial.
-
-Por el contrario, las variables edad (x2) e IMC (x5) no resultan estadísticamente significativas dentro del modelo estratificado.
-
-En conjunto, los tres contrastes globales del modelo (razón de
-verosimilitudes, Wald y log-rank) coinciden en que el modelo es
-altamente significativo ($p < 1 \times 10^{-7}$). Además, el índice de concordancia del modelo (C = 0.551) se mantiene prácticamente idéntico al obtenido en el modelo de Cox estándar, lo que indica una capacidad predictiva moderada del modelo para discriminar entre individuos con distintos tiempos de
-supervivencia.
-
-En consecuencia, el modelo estratificado permite controlar adecuadamente el posible incumplimiento del supuesto de riesgos proporcionales asociado a la variable sexo, manteniendo una interpretación estable del efecto del resto de covariables.
-
-## Modelo de Cox ampliado
-
 # Evaluación del supuesto de riesgos proporcionales
 
 Se evalúa el supuesto de proporcionalidad de riesgos del modelo
@@ -1189,7 +1160,38 @@ proporcionales o por una categorización que no refleja adecuadamente el
 efecto real de esta variable, lo que sugeriría revisar su especificación
 en el modelo.
 
-### Modelo estratificado
+# Alternativa 
+
+Después de observar de todas la proporcionalidad de las variables para el modelo escogido con las variables consideradas que daban información en el modelo. Tras el anàlisis mediante diferentes mètodos se observa que la variable que hace referencia a sexo no sigue la hipotesis de proporcionalidad, por lo tanto se considera hacer un modelo estratificando por esa variable. 
+
+## Modelo de Cox estratificado
+
+Como alternativa al modelo de Cox estándar, se considera un modelo de Cox estratificado utilizando la variable x4 como factor de estratificación.
+
+El modelo se ajusta mediante:
+
+```{r}
+modelo_estrat <- coxph(
+  Surv(Survt, Status) ~ x1 + x2 + x3 + x5 + strata(x4),
+  data = datos,
+  method = "efron"
+)
+
+summary(modelo_estrat)
+```
+
+El modelo de Cox ajustado presenta un total de 2000 individuos y 1595 eventos observados. Los resultados obtenidos muestran que las variables tratamiento (x1) y presión arterial sistólica (x3) continúan siendo estadísticamente significativas tras la estratificación por sexo. En particular, el tratamiento estándar presenta un hazard ratio de 1.15 (IC 95%: 1.04–1.27), lo que indica un incremento aproximado del 15% en el riesgo de fallecimiento respecto al nuevo tratamiento. 
+
+Asimismo, la presión arterial sistólica mantiene un efecto positivo sobre el riesgo, con un incremento aproximado del 2.8% por unidad adicional de presión arterial.
+
+Por el contrario, las variables edad (x2) e IMC (x5) no resultan estadísticamente significativas dentro del modelo estratificado.
+
+En conjunto, los tres contrastes globales del modelo (razón de
+verosimilitudes, Wald y log-rank) coinciden en que el modelo es
+altamente significativo ($p < 1 \times 10^{-7}$). Además, el índice de concordancia del modelo (C = 0.551) se mantiene prácticamente idéntico al obtenido en el modelo de Cox estándar, lo que indica una capacidad predictiva moderada del modelo para discriminar entre individuos con distintos tiempos de
+supervivencia.
+
+En consecuencia, el modelo estratificado permite controlar adecuadamente el posible incumplimiento del supuesto de riesgos proporcionales asociado a la variable sexo, manteniendo una interpretación estable del efecto del resto de covariables.
 
 ```{r, fig.align='center', fig.width=7, fig.height=5}
 # Modelo estratificado por sexo
@@ -1286,4 +1288,274 @@ modelo_estrat_con_int <- coxph(
 
 anova(modelo_estrat_sin_int, modelo_estrat_con_int, test = "LRT")
 ```
+
 Sin embargo, el contraste de razón de verosimilitudes no muestra una mejora significativa del ajuste al incorporar interacciones (p = 0.8003). Por tanto, no existe evidencia suficiente de efectos diferenciales relevantes entre estratos y se mantiene el modelo estratificado sin interacción al no aportar una mejora significativa del ajuste.
+
+## Modelo Ampliado 
+
+Tras evaluar la hipótesis de riesgos proporcionales en el modelo de Cox seleccionado, se observó que la variable \texttt{sexo} no cumple dicha hipótesis. Para ello se analizaron diferentes métodos gráficos y estadísticos, así como la inclusión de términos dependientes del tiempo.
+
+El modelo de Cox proporcional se define como:
+
+$$
+h(t \mid X)=h_0(t)\exp\left(\sum_{j=1}^{p}\beta_j X_j\right)
+$$
+
+donde $h_0(t)$ representa la función de riesgo basal y $\beta_j$ el efecto asociado a cada covariable $X_j$.
+
+Para evaluar la proporcionalidad se consideró un modelo extendido con interacción temporal:
+
+$$
+h(t \mid X)=h_0(t)\exp\left(\beta X + \delta X g(t)\right)
+$$
+
+Si el parámetro $\delta$ resulta significativamente distinto de cero, la hipótesis de riesgos proporcionales no se cumple, ya que el efecto de la covariable depende del tiempo.
+
+En el caso de la variable \texttt{sexo}, los resultados obtenidos mostraron evidencia de no proporcionalidad. Por este motivo, se optó por ajustar un modelo de Cox estratificado, permitiendo diferentes funciones de riesgo basal para cada estrato definido por dicha variable:
+
+$$
+h_k(t \mid X)=h_{0k}(t)\exp\left(\sum_{j=1}^{p}\beta_j X_j\right)
+$$
+
+donde $k$ representa cada estrato asociado al sexo. De este modo, se mantiene el efecto de las demás covariables mientras se relaja la hipótesis de proporcionalidad para la variable estratificada.
+
+En el caso de que, tras intentar estratificar el modelo, se observe que alguna covariable presenta dependencia temporal, esto implica que su efecto no es independiente del tiempo de supervivencia y, por tanto, no se cumple la hipótesis de riesgos proporcionales como seria en nuestro caso. 
+
+En esta situación, puede considerarse un modelo de Cox extendido incorporando variables dependientes del tiempo. La formulación general del modelo es:
+
+$$
+h(t \mid X)=h_0(t)\exp\left(\sum_{j=1}^{p}\beta_j X_j + \sum_{j=1}^{q}\delta_j X_j(t)\right)
+$$
+
+donde $X_j(t)$ representa covariables dependientes del tiempo y $\delta_j$ cuantifica su efecto sobre el riesgo.
+
+También puede incorporarse una interacción entre la covariable y una función del tiempo:
+
+$$
+h(t \mid X)=h_0(t)\exp\left(\beta X + \delta X g(t)\right)
+$$
+
+siendo $g(t)$ una función temporal, como por ejemplo $g(t)=t$ o $g(t)=\log(t)$.
+
+La significación estadística del parámetro $\delta$ indica que el efecto de la covariable varía a lo largo del tiempo, evidenciando la falta de proporcionalidad de riesgos.
+
+Consideramos que la variable \texttt{sexo} podría presentar dependencia temporal debido a los diferentes cruces observados en las curvas de supervivencia en determinadas semanas específicas, comentados anteriormente. Este comportamiento sugiere que el efecto de dicha variable sobre el riesgo no se mantiene constante a lo largo del tiempo, incumpliéndose así la hipótesis de riesgos proporcionales.
+
+Para tener en cuenta esta posible variación temporal, puede plantearse un modelo de Cox extendido incorporando una interacción entre la variable \texttt{sexo} y una función del tiempo:
+
+$$
+h(t \mid X)=h_0(t)\exp\left(\beta_1 \, \texttt{sexo} + \delta_1 \, \texttt{sexo}\cdot g(t)\right)
+$$
+
+donde $g(t)$ representa una función del tiempo, por ejemplo $g(t)=t$ o $g(t)=\log(t)$. Si el coeficiente $\delta_1$ resulta significativo, se concluye que el efecto de la variable \texttt{sexo} varía a lo largo del tiempo.
+
+Antes de todo comprabamos todas la variables: 
+
+```{r}
+datos.cp <- survSplit(
+  Surv(Survt, Status) ~ .,
+  data    = datos,
+  cut     = datos$Survt[datos$Status == 1],  # cortes en cada tiempo de evento
+  end     = "Survt",
+  event   = "Status",
+  start   = "start",
+  id      = "id"
+)
+
+# covariable dependiente del tiempo: x4 * log(t)
+datos.cp$tStop  <- datos.cp$Survt                        
+datos.cp$tmid   <- (datos.cp$start + datos.cp$Survt) / 2 
+datos.cp$x4_t   <- datos.cp$x4 * log(datos.cp$tmid)     
+
+# objeto de supervivencia en formato (start, stop] 
+Y_cp <- Surv(datos.cp$start, datos.cp$Survt, datos.cp$Status)
+
+# 4. Modelo de Cox extendido
+modelo_ext <- coxph(
+  Y_cp ~ x1 + x3 + x4 + x4_t,
+  data = datos.cp,
+  ties = "efron"
+)
+summary(modelo_ext)
+```
+
+El modelo de Cox extendido incorporando la interacción *x4·log(t)* como covariable dependiente del tiempo no ha resultado satisfactorio para capturar la no proporcionalidad del sexo. 
+
+El término de interacción \(x4\_t\) presenta un coeficiente \(\beta = 0.041\) no significativo (\(p = 0.461\)), lo que indica que una función monótona del tipo \(\log(t)\) es incapaz de modelar adecuadamente la variación temporal del efecto del sexo. Este resultado no contradice las conclusiones del test de Schoenfeld (\(p = 1.8 \times 10^{-14}\)), sino que revela que la naturaleza de la no proporcionalidad es más compleja: como se observó en los gráficos log-log y en los residuos de Schoenfeld, las curvas de supervivencia de hombres y mujeres se cruzan aproximadamente en el día 200, de modo que el efecto del sexo cambia de signo a lo largo del seguimiento.
+
+Una interacción lineal con \(\log(t)\) solo puede capturar tendencias monótonas crecientes o decrecientes, pero no un cambio de dirección del efecto. Por ello, se considera una alternativa más adecuada basada en funciones de cambio de punto (\textit{Heaviside}), que permiten que el efecto de la covariable tome valores distintos antes y después del momento del cruce.
+
+A continuación antes de usar la función de Heavside calculamos los Hazads ratio para comprovar la relación: 
+
+```{r}
+# en t=100
+exp(-0.581655 + log(100) * 0.040692)
+exp(-(-0.581655 + log(100) * 0.040692))
+```
+
+Nos encontramos que el hazard ratio es inferior a 1, hacemos uso de exp(-coef) para interpretarlo como el riesgo relativo de hombres respecto a mujeres, implicando que para ese tiempo los hombres tienes 1.483 veces más riesgo de sufrir el evento de estudio. 
+
+```{r}
+#en t=400 días es:
+exp(-0.581655 + log(400) * 0.040692)
+exp(-(-0.581655 + log(400) * 0.040692))
+
+```
+En el corte de 400 dias, el hazard ratio sigue inferior, no parece que ha variado. 
+
+El riesgo de fallecimiento de los hombres es 1.483 veces el de las mujeres en t=100, controlando por x1 y x3. Por el otro lado, el riesgo de fallecimiento de los hombres es 1.403 veces el de las mujeres en t=400, controlando por x1 y x3.
+
+Se puede observar que el HR varía con el tiempo pero muy levemente
+de 1.483 a 1.403 entre los días 100 y 400, y que en ningún momento cruza el valor 1, el modelo con log(t) NO captura el cruce observado gráficamente alrededor del día 200.
+ 
+A causa que consideramos 
+```{r}
+datos.cp200 <- survSplit(
+  Surv(Survt, Status) ~ .,
+  data  = datos,
+  cut   = 200,            # punto de cruce observado en log-log
+  end   = "Survt",
+  event = "Status",
+  start = "start",
+  id    = "id"
+)
+
+datos.cp200$hv1 <- datos.cp200$x4 * (datos.cp200$Survt <  200)
+datos.cp200$hv2 <- datos.cp200$x4 * (datos.cp200$Survt >= 200)
+
+Y200 <- Surv(datos.cp200$start, datos.cp200$Survt, datos.cp200$Status)
+
+modelo_hv <- coxph(
+  Y200 ~ x1 + x3 + hv1 + hv2 + cluster(id),
+  data = datos.cp200,
+  ties = "efron"
+)
+summary(modelo_hv)
+
+```
+
+El modelo de Cox ampliado con funciones de cambio de punto, heavside, con corte en 200 días confirma el cruce del efecto del sexo observado gráficamente. Antes del día 200, las mujeres presentan un riesgo de fallecimiento 3,346 veces superior al de los hombres 
+\[
+\left(\widehat{HR}_{hv_1} = 3{,}346,\; IC_{95\%}: 2{,}935 - 3{,}814,\; p < 0{,}001\right),
+\]
+mientras que, a partir de dicho instante, el efecto \textbf{se invierte}: los hombres pasan a tener un riesgo \textbf{2,286 veces mayor} que las mujeres
+\[
+\left(\widehat{HR}_{hv_2} = 0{,}437,\; IC_{95\%}: 0{,}379 - 0{,}505,\; p < 0{,}001\right).
+\]
+
+El signo opuesto de ambos coeficientes 
+\[
+\left(\hat{\delta}_1 = 1{,}208 \;\text{frente a}\; \hat{\delta}_2 = -0{,}827\right)
+\]
+confirma matemáticamente dicho cruce. Los efectos del tratamiento 
+\[
+\left(\widehat{HR}_{x_1} = 1{,}121,\; p = 0{,}024\right)
+\]
+y de la presión arterial sistólica
+\[
+\left(\widehat{HR}_{x_3} = 1{,}014,\; p = 0{,}002\right)
+\]
+se mantienen significativos y en la misma dirección que en modelos anteriores.
+
+Respecto al ajuste global, este modelo supone una mejora sustancial frente a todas las alternativas previas, con una concordancia de 
+\[
+C = 0{,}677
+\]
+frente al 
+\[
+C = 0{,}551
+\]
+de los modelos estándar y estratificado, y un estadístico
+\[
+LRT = 1181
+\]
+con 4 grados de libertad 
+\[
+(p < 2 \times 10^{-16}),
+\]
+
+
+
+Con el objetivo de evaluar individualmente la hipótesis de proporcionalidad de riesgos para cada covariable del modelo seleccionado, se ajustan modelos de Cox ampliados incorporando, una a una, la interacción de cada variable con la función 
+\[
+g(t)=\log(t).
+\]
+
+Este procedimiento es equivalente al test de Schoenfeld, pero desde una perspectiva paramétrica: 
+
+```{r}
+
+# x1 (Tratamiento):
+datos.cp$logtx1 <- datos.cp$x1 * log(datos.cp$tmid)
+anova(coxph(Surv(start, Survt, Status) ~ x1 + logtx1, data = datos.cp))
+
+# x3 (Presión arterial):
+datos.cp$logtx3 <- datos.cp$x3 * log(datos.cp$tmid)
+anova(coxph(Surv(start, Survt, Status) ~ x3 + logtx3, data = datos.cp))
+
+# x4 (Sexo):
+datos.cp$logtx4 <- datos.cp$x4 * log(datos.cp$tmid)
+anova(coxph(Surv(start, Survt, Status) ~ x4 + logtx4, data = datos.cp))
+```
+
+Los resultados obtenidos son consistentes con los del test de Schoenfeld: ni el tratamiento (\(x_1\)) ni la presión arterial sistólica (\(x_3\)) muestran evidencia de dependencia temporal, con términos de interacción no significativos (\(p > 0{,}05\) en ambos casos), lo que confirma que sus efectos pueden considerarse proporcionales a lo largo del seguimiento. 
+
+En cambio, la interacción 
+\[
+x_4 \cdot \log(t)
+\]
+sí resulta estadísticamente significativa (\(p < 0{,}001\)), lo que corrobora que el efecto del sexo no permanece constante en el tiempo y que, por tanto, la hipótesis de riesgos proporcionales se viola para esta variable.
+
+Con el objetivo de seleccionar el punto de corte óptimo para las funciones Heaviside, se comparan modelos ajustados con distintos valores de corte entre los días 150 y 250. 
+
+```{r}
+datos.cp200 <- survSplit(
+  Surv(Survt, Status) ~ .,
+  data  = datos,
+  cut   = 200,
+  end   = "Survt",
+  event = "Status",
+  start = "start",
+  id    = "id"
+)
+
+# funciones de cambio de punto
+# hv1: efecto de x4 antes del cruce  (t < 200)
+# hv2: efecto de x4 después del cruce (t >= 200)
+datos.cp200$hv1 <- datos.cp200$x4 * (datos.cp200$Survt < 200)
+datos.cp200$hv2 <- datos.cp200$x4 * (datos.cp200$Survt >= 200)
+
+# Objeto de supervivencia en formato (start, stop]
+Y200 <- Surv(datos.cp200$start, datos.cp200$Survt, datos.cp200$Status)
+
+#  Modelo con dos funciones de cambio de punto 
+modelo_hv <- coxph(
+  Y200 ~ x1 + x3 + hv1 + hv2 + cluster(id),
+  data = datos.cp200,
+  ties = "efron"
+)
+summary(modelo_hv)
+
+for (corte in c(150, 180, 200, 220, 250)) {
+  dcp <- survSplit(Surv(Survt, Status) ~ ., data = datos,
+                   cut = corte, end = "Survt", event = "Status",
+                   start = "start", id = "id")
+  dcp$hv1 <- dcp$x4 * (dcp$Survt < corte)
+  dcp$hv2 <- dcp$x4 * (dcp$Survt >= corte)
+  Y_tmp <- Surv(dcp$start, dcp$Survt, dcp$Status)
+  m <- coxph(Y_tmp ~ x1 + x3 + hv1 + hv2, data = dcp, ties = "efron")
+  cat("Corte =", corte, 
+      "| loglik =", round(m$loglik[2], 3), 
+      "| AIC =",   round(AIC(m), 3), "\n")
+}
+
+#Contraste LRT: ¿aportan conjuntamente hv1 y hv2?
+modelo_sin_hv <- coxph(Y200 ~ x1 + x3, data = datos.cp200, ties = "efron")
+modelo_con_hv <- coxph(Y200 ~ x1 + x3 + hv1 + hv2, data = datos.cp200, ties = "efron")
+
+anova(modelo_sin_hv, modelo_con_hv)
+```
+Los resultados muestran que el AIC disminuye progresivamente a medida que el punto de corte se desplaza hacia valores más tardíos, sugeriendo que el cruce efectivo entre las curvas de supervivencia de hombres y mujeres podría producirse algo más tarde de lo apreciado visualmente en los gráficos log-log. 
+
+
+
