@@ -1518,33 +1518,34 @@ Finalmente, el índice de concordancia alcanza C = 0.694, frente al C = 0.551 de
 
 **Comparación con modelo estratificado**
 
-Aunque la mejora en el índice de concordancia ya apunta claramente a favor del modelo ampliado con funciones de cambio de punto (C = 0.694 frente a C = 0.551 del modelo estratificado), resulta conveniente complementar esta comparación con criterios formales basados en el ajuste del modelo. A continuación se comparan ambos modelos en términos de AIC y mediante un test de razón de verosimilitudes.
+Aunque la mejora en el índice de concordancia ya apunta claramente a favor del modelo ampliado con funciones de cambio de punto (C = 0.694 frente a C = 0.551 del modelo estratificado), resulta conveniente complementar esta comparación con criterios formales basados en el ajuste del modelo. A continuación se comparan ambos modelos mediante un test de razón de verosimilitudes.
 
 ```{r, echo=FALSE}
 library(knitr)
 library(kableExtra)
-# Versiones sin cluster para comparación por AIC
+
+# Versiones sin cluster para comparación formal
 modelo_estrat_base <- coxph(
   Y_3 ~ x1 + x3 + strata(x4),
   data = dcp_3,
   ties = "efron"
 )
-
 modelo_hv3_comp <- coxph(
   Y_3 ~ x1 + x3 + hv1 + hv2 + hv3 + hv4,
   data = dcp_3,
   ties = "efron"
 )
+
 tabla_comp <- data.frame(
   Modelo       = c("Estratificado", "Ampliado Heaviside"),
   LogLik       = round(c(modelo_estrat_base$loglik[2], modelo_hv3_comp$loglik[2]), 2),
   Parámetros   = c(2, 6),
-  AIC          = round(c(AIC(modelo_estrat_base), AIC(modelo_hv3_comp)), 2),
   Concordancia = c(0.551, 0.694)
 )
+
 kable(tabla_comp,
       caption  = "Comparación entre modelo estratificado y modelo ampliado con Heaviside",
-      align    = c("l", "r", "r", "r", "r"),
+      align    = c("l", "r", "r", "r"),
       booktabs = TRUE) %>%
   kable_styling(
     bootstrap_options = c("striped", "hover"),
@@ -1556,8 +1557,9 @@ kable(tabla_comp,
            color      = "white",
            background = "#2C7BB6")
 ```
-El modelo estratificado tiene un AIC más bajo (18793 frente a 20243), lo que podría interpretarse como que ajusta mejor los datos. Sin embargo, esta comparación no es completamente directa, ya que los dos modelos tratan el sexo de maneras muy distintas: uno lo absorbe en la curva de riesgo base sin cuantificarlo, y el otro lo estima explícitamente en cada tramo temporal.
 
-Donde sí hay una diferencia clara es en la concordancia: el modelo ampliado con cambios de punto alcanza un valor de 0.694 frente al 0.551 del estratificado. Esto significa que el modelo ampliado es bastante mejor a la hora de distinguir qué pacientes tienen más o menos riesgo de fallecer.
+Cabría pensar en utilizar el AIC como criterio de comparación entre ambos modelos, pero esto no resulta apropiado en este caso. El modelo estratificado incorpora el sexo directamente en la función de riesgo base, de modo que su contribución a la verosimilitud queda absorbida sin ocupar ningún parámetro explícito. El modelo ampliado, en cambio, estima el efecto del sexo mediante cuatro coeficientes de Heaviside. Al tener naturalezas distintas, las verosimilitudes de ambos modelos no son directamente comparables, y el AIC (que penaliza en función del número de parámetros estimados) no ofrece aquí una base de comparación válida.
 
-En definitiva, si lo que nos interesa es simplemente tener en cuenta el sexo para estimar mejor el efecto del tratamiento, el modelo estratificado es suficiente y más sencillo. Pero si queremos entender cómo cambia el efecto del sexo a lo largo del seguimiento, el modelo ampliado con puntos de cambio es claramente preferible.
+Donde sí hay una diferencia clara es en la concordancia: el modelo ampliado con cambios de punto alcanza un valor de 0.694 frente al 0.551 del estratificado. Esto significa que el modelo ampliado es considerablemente más eficaz a la hora de discriminar qué pacientes tienen mayor o menor riesgo de fallecer.
+
+Nos decantamos, por tanto, por el modelo ampliado con funciones de Heaviside. Su ventaja no reside únicamente en una mayor capacidad discriminativa, sino en que ofrece una descripción explícita y cuantificada de cómo varía el efecto del sexo a lo largo del seguimiento. Esta información de la evolución temporal es precisamente la que permite comprender el comportamiento de los tiempos de supervivencia: el sexo no actúa de forma constante sobre el riesgo, sino que su influencia se modifica a medida que avanza el tiempo, y el modelo ampliado es el único de los dos que es capaz de capturar y comunicar esa dinámica.
