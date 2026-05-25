@@ -90,9 +90,9 @@ un ictus. Para cada uno de ellos se dispone de las siguientes variables:
 | `Survt` | Tiempo de supervivencia desde el ictus hasta el fallecimiento o hasta la censura, medido en días | Cuantitativa continua |
 | `Status` | Variable de censura: `1` si el paciente fallece durante el seguimiento; `0` si no se produce el evento | Binaria |
 | `x1` | Tipo de tratamiento: `1` = tratamiento estándar; `0` = nuevo tratamiento en estudio | Binaria |
-| `x2` | Edad del paciente en el momento del ictus, en años | Cuantitativa continua |
-| `x3` | Presión arterial sistólica registrada al ingreso hospitalario, en mmHg | Cuantitativa continua |
-| `x4` | Sexo del paciente: `1` = mujer; `0` = hombre | Binaria |
+| `x2` | Edad del paciente en el momento del ictus, en años dividida por 10 | Cuantitativa continua |
+| `x3` | Presión arterial sistólica registrada al ingreso hospitalario (valor estandarizado) | Cuantitativa continua |
+| `x4` | Sexo del paciente: `1` = hombre; `2` = mujer | Binaria |
 | `x5` | Índice de masa corporal (IMC) del paciente al ingreso, en kg/m² | Cuantitativa continua |
 
 A continuación, se describe el papel esperado de cada variable en el
@@ -110,14 +110,12 @@ definida.
     complicaciones, por lo que se espera que la edad esté asociada a un
     mayor riesgo de fallecimiento.
 
--   **`x3` — Presión arterial sistólica al ingreso:** Refleja el estado
-    cardiovascular del paciente en el momento del episodio. Tanto
-    valores muy bajos como muy elevados pueden indicar mayor gravedad y
-    asociarse a un peor pronóstico.
+-   **`x3` — Presión arterial estandarizada al ingreso:** Refleja el estado
+    cardiovascular del paciente en el momento del episodio. La variable está estandarizada, por lo que valores negativos indican presión inferior a la media de la muestra y valores positivos, superior
 
 -   **`x4` — Sexo:** Existen diferencias entre hombres y mujeres en la
     incidencia y evolución del ictus. Se incluye como posible factor de
-    confusión o modificador del efecto del tratamiento.
+    confusión o modificador del efecto del tratamiento. En los datos      originales, esta variable toma los valores 1 (hombre) y 2 (mujer). Para facilitar su uso como variable de interacción en el modelo estratificado, se crea una variable derivada x4_bin mediante la recodificación x4_bin <- ifelse(x4 == 2, 1, 0), de modo que x4_bin = 1 indica mujer y x4_bin = 0 indica hombre."
 
 -   **`x5` — IMC:** El índice de masa corporal es un indicador del
     estado nutricional general del paciente. Valores extremos pueden
@@ -466,21 +464,21 @@ data.frame(
     "N total",
     "Fallecimientos (eventos)",
     "Tiempo mediano de supervivencia (días)",
-    "Edad media — x2 (años)",
-    "Presión arterial sistólica media — x3 (mmHg)",
+    "Edad media — x2 (años/10)",
+    "Presión arterial sistólica media — x3 (estandarizada)",
     "IMC medio — x5 (kg/m²)",
     "Tratamiento estándar — x1=1 (%)",
-    "Mujeres — x4=1 (%)"
+    "Mujeres — x4=2 (%)"
   ),
   Valor = c(
     nrow(datos),
     paste0(sum(datos$Status), " (", round(mean(datos$Status) * 100, 1), "%)"),
-    median(datos$Survt),
+    round(median(datos$Survt), 1),
     round(mean(datos$x2), 1),
     round(mean(datos$x3), 1),
     round(mean(datos$x5), 1),
     paste0(round(mean(datos$x1) * 100, 1), "%"),
-    paste0(round(mean(datos$x4 == 1) * 100, 1), "%")
+    paste0(round(mean(datos$x4 == 2) * 100, 1), "%")
   )
 ) %>%
   kable(caption = "Características basales de la muestra") %>%
@@ -666,12 +664,11 @@ concordancia sube a C = 0.551. Los resultados variable a variable son:
     superior al del nuevo tratamiento.
 
 -   x3: Presión arterial sistólica (HR = 1.027, IC 95%: 1.017–1.037, p
-    \< 0.001): cada mmHg adicional de presión al ingreso aumenta el
-    riesgo de fallecimiento un 2.7%, siendo el segundo factor más
+    \< 0.001): cada unidad adicional de presión arterial estandarizada al      ingreso aumenta el riesgo de fallecimiento un 2.7%, siendo el segundo factor más
     relevante del modelo.
 
 -   x4: Sexo (HR = 0.698, IC 95%: 0.629–0.775, p \< 0.001): las mujeres
-    (x4 = 1) presentan un riesgo de fallecimiento un 30.2% inferior al
+    (x4 = 2) presentan un riesgo de fallecimiento un 30.2% inferior al
     de los hombres, siendo la variable con mayor impacto en el modelo.
 
 **No significativas**
@@ -876,7 +873,7 @@ KM_x4 <- survfit(surv_obj ~ x4, data = datos)
 plot(KM_x4, fun = "cloglog", lty = c(1, 2), col = c(1, 2),
      xlab = "log(Tiempo)", ylab = "log-log supervivencia",
      main = "log-log por sexo (x4)")
-legend("topleft", c("Hombre (x4=0)", "Mujer (x4=1)"),
+legend("topleft", c("Hombre (x4=1)", "Mujer (x4=2)"),
        lty = c(1, 2), col = c(1, 2), cex = 0.8)
 
 par(mfrow = c(1, 1))
@@ -1139,7 +1136,7 @@ lines(exp0, col = 1, lty = 3)
 lines(exp1, col = 2, lty = 4)
 
 legend("topright",
-       c("Obs x4=0","Obs x4=1","Esp x4=0","Esp x4=1"),
+       c("Obs x4=1","Obs x4=2","Esp x4=1","Esp x4=2"),
        col = c(1,2,1,2),
        lty = c(1,2,3,4),
        cex = 0.8)
@@ -1147,17 +1144,12 @@ legend("topright",
 par(mfrow = c(1,1))
 ```
 
-En el caso del tratamiento (x1) y el sexo (x4), ambas variables binarias, las curvas observadas y esperadas se aproximan razonablemente bien entre sí, lo que indica que el modelo de Cox captura adecuadamente el efecto de estas covariables sobre la supervivencia. No obstante, la variable sexo (x4) muestra ciertos indicios de incumplimiento del supuesto de proporcionalidad.
+En el caso del tratamiento (x1), las curvas observadas y esperadas se aproximan razonablemente bien, lo que indica que el modelo captura adecuadamente su efecto. 
 
-Sin embargo, el gráfico de la presión arterial (x3), categorizada en
-tres niveles (Bajo, Medio y Alto), muestra discrepancias más notables
-entre las curvas observadas y las esperadas, especialmente en los grupos
-extremos. Esto podría indicar que la relación entre la presión arterial
-y el riesgo de evento no es capturada correctamente por el modelo en su
-forma actual, ya sea por una violación del supuesto de riesgos
-proporcionales o por una categorización que no refleja adecuadamente el
-efecto real de esta variable, lo que sugeriría revisar su especificación
-en el modelo.
+En el caso de la presión arterial (x3), categorizada en tres niveles (Bajo, Medio y Alto), las curvas observadas y esperadas se superponen de forma muy ajustada en los tres grupos, lo que indica que el modelo captura correctamente el efecto de esta variable y que no hay evidencia visual de incumplimiento del supuesto de proporcionalidad.
+
+Para el sexo (x4), en cambio, aunque las curvas se superponen parcialmente, se aprecian divergencias que confirman la no proporcionalidad ya detectada mediante el test de Schoenfeld (p = 1.8×10^-14) y los residuos, donde el efecto varía claramente a lo largo del tiempo.
+
 
 # Alternativa 
 
