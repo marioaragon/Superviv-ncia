@@ -69,13 +69,12 @@ con el tipo de tratamiento, se recogen también características básicas
 del paciente en el momento del ingreso que podrían condicionar su
 evolución.
 
-El evento de interés es el **fallecimiento del paciente** durante el
-período de seguimiento. Los pacientes que siguen vivos al finalizar los
-dos años de seguimiento, concluyendo a un estudio aproximado de unos 730
-días, al igual que aquellos que abandonan el estudio antes de su
-conclusión se consideran **observaciones censuradas por la derecha**, al
-no conocer con exactitud el tiempo de superpervivencia es inferior o
-igual al tiempo exacto de supervivencia.
+El evento de interés es el **fallecimiento del paciente** durante el período 
+de seguimiento. Los pacientes que siguen vivos al finalizar los dos años 
+de seguimiento, con un período de aproximadamente 730 días, así como aquellos 
+que abandonan el estudio antes de su conclusión, se consideran 
+**observaciones censuradas por la derecha**, dado que su tiempo real 
+de supervivencia es superior o igual al tiempo observado.
 
 ------------------------------------------------------------------------
 
@@ -252,7 +251,7 @@ $$h_{ig}(t) = h_{0g}(t) \cdot \exp\left(\sum_j \beta_j x_{ij}\right)$$
 
 La variable de estratificación no genera un coeficiente propio (no se
 obtiene un HR para ella), pero su efecto sobre el riesgo basal queda
-controlado. n consecuencia, el modelo estratificado permite relajar
+controlado. En consecuencia, el modelo estratificado permite relajar
 parcialmente la hipótesis de riesgos proporcionales, ya que admite que
 la función de riesgo basal pueda variar entre estratos definidos por la
 variable problemática. Sin embargo, se mantiene la hipótesis de que los
@@ -484,7 +483,7 @@ data.frame(
     paste0(round(mean(datos$x4 == 1) * 100, 1), "%")
   )
 ) %>%
-  kable(caption = "Tabla 1. Características basales de la muestra") %>%
+  kable(caption = "Características basales de la muestra") %>%
   kable_styling(
     bootstrap_options = c("striped", "hover", "condensed"),
     full_width = FALSE
@@ -798,7 +797,7 @@ data.frame(
   Concordancia = c(summary(model2)$concordance[1],
                    summary(modelo_bic)$concordance[1])
 ) |>
-  kable(digits = 3, caption = "Tabla X. Comparación modelo completo vs seleccionado") |>
+  kable(digits = 3, caption = "Comparación modelo completo vs seleccionado") |>
   kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
 ```
 
@@ -899,7 +898,7 @@ alto, se puede observar la existencia de cruces a los días (10, 20, 30 y
 mujeres también se cruzan en los días 200, sobre todo en el extremo
 derecho del gráfico, lo que sugiere que la diferencia en el riesgo entre
 ambos sexos varía según el momento en que nos encontremos del
-seguimiento. En el final del proceso parace que la diferencia entre sexo
+seguimiento. En el final del proceso parece que la diferencia entre sexo
 tiende cada vez a insignificancia.
 
 ## Test de Schoenfeld
@@ -1162,7 +1161,7 @@ en el modelo.
 
 # Alternativa 
 
-Después de observar de todas la proporcionalidad de las variables para el modelo escogido con las variables consideradas que daban información en el modelo. Tras el anàlisis mediante diferentes mètodos se observa que la variable que hace referencia a sexo no sigue la hipotesis de proporcionalidad, por lo tanto se considera hacer un modelo estratificando por esa variable. 
+Después de observar de todas la proporcionalidad de las variables para el modelo escogido con las variables consideradas que daban información en el modelo. Tras el análisis mediante diferentes métodos se observa que la variable que hace referencia a sexo no sigue la hipótesis de proporcionalidad, por lo tanto se considera hacer un modelo estratificando por esa variable. 
 
 ## Modelo de Cox estratificado
 
@@ -1349,7 +1348,7 @@ $$
 
 donde $g(t)$ representa una función del tiempo, por ejemplo $g(t)=t$ o $g(t)=\log(t)$. Si el coeficiente $\delta_1$ resulta significativo, se concluye que el efecto de la variable \texttt{sexo} varía a lo largo del tiempo.
 
-Antes de todo comprabamos todas la variables: 
+Antes de todo comprobamos todas la variables: 
 
 ```{r}
 datos.cp <- survSplit(
