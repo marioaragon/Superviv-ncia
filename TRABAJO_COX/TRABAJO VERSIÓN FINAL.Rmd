@@ -80,7 +80,7 @@ de supervivencia es superior o igual al tiempo observado.
 
 # Descripción de las variables
 
-La muestra está formada por **1.400 pacientes** ingresados tras sufrir
+La muestra está formada por un conjunto de datos de pacientes ingresados tras sufrir
 un ictus. Para cada uno de ellos se dispone de las siguientes variables:
 
 \newpage
